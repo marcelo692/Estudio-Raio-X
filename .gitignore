@@ -1,0 +1,20 @@
+# Gerados pelo estúdio (ficam só no computador)
+cache_voz/
+videos/
+versoes/
+__pycache__/
+*.pyc
+# Músicas: cada um coloca as suas (licença), só as pastas vão para o GitHub
+musicas/**/*.mp3
+musicas/**/*.m4a
+musicas/**/*.ogg
+musicas/**/*.wav
+# Efeitos gerados pela ElevenLabs com a chave de cada PC
+sons/
+# Segurança: nada de chave no repositório
+*.env
+.estudio-zuco.json
+# Só deste computador
+versao.json
+padrao.json
+python/

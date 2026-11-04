@@ -1,0 +1,11 @@
+Músicas de fundo (.mp3, .m4a, .ogg ou .wav), só com licença para uso comercial.
+
+Separe por clima, uma pasta para cada:
+  divertida  -> humor do dia a dia
+  animada    -> curiosidades e listas
+  suspense   -> revelações, mito ou verdade
+  calma      -> explicações sérias
+
+No modo "Automática pelo clima", a IA escolhe o clima no roteiro e o estúdio sorteia uma música daquela pasta.
+Música solta aqui fora das pastas serve para qualquer clima.
+Também dá para usar o botão "Adicionar música a este clima" no estúdio.

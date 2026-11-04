@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postagens · Estúdio do Zuco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Janela de postagens: fila dos vídeos prontos, textos para copiar e o que já foi postado em cada rede.
+   Mesmas cores do estúdio (index.html). Os dados vêm de /api/postagens (servidor.py). */
+:root{
+  --bg:#15161b; --panel:#1e2027; --line:#2f323c; --fg:#ece8df; --muted:#9b978e;
+  --accent:#9fd9c3; --accent-ink:#10231c; --warn:#f0a07a;
+  --yt:#e5604a; --tt:#7fc8e8; --ig:#d99be0;
+  --display:"Fraunces", Georgia, serif;
+  --body:"IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0}
+body{font-family:var(--body);font-size:15px;line-height:1.5;padding:16px 16px 48px}
+.wrap{max-width:980px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,3vw,32px);line-height:1.1;margin:0}
+.muted{color:var(--muted)}
+button{font:500 14px var(--body);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer}
+button.sm{font-size:13px;padding:5px 10px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tabs b{font-family:var(--mono);font-weight:500;margin-left:6px;opacity:.8}
+.list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:grid;grid-template-columns:120px 1fr;gap:16px;padding:14px}
+.card.done{opacity:.75}
+.thumb{width:120px;aspect-ratio:9/16;border-radius:8px;background:#0e0f13;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;cursor:pointer;color:var(--muted);font-size:28px}
+.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+.info{min-width:0;display:flex;flex-direction:column;gap:10px}
+.title{font-family:var(--display);font-weight:600;font-size:19px;line-height:1.25;margin:0;overflow-wrap:anywhere}
+.meta{font:13px var(--mono);color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.meta input{font:13px var(--mono);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;color-scheme:dark}
+.redes{display:flex;gap:8px;flex-wrap:wrap}
+.rede{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 12px;font-size:14px;border:1px solid var(--line);background:transparent}
+.rede i{width:10px;height:10px;border-radius:50%;border:2px solid var(--c)}
+.rede.ok{background:color-mix(in srgb, var(--c) 18%, transparent);border-color:var(--c)}
+.rede.ok i{background:var(--c)}
+.rede small{font:12px var(--mono);color:var(--muted)}
+details summary{cursor:pointer;color:var(--accent);font-size:14px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"▸ "} details[open] summary::before{content:"▾ "}
+.txt{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.txt .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.txt b{font-size:13px}
+.txt pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.45 var(--body);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:180px;overflow:auto}
+.empty{border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.msg{color:var(--warn);font-size:14px;margin:0 0 12px}
+@media (max-width:560px){
+  .card{grid-template-columns:72px 1fr;gap:12px;padding:12px}
+  .thumb{width:72px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <span class="eyebrow">Estúdio do Zuco</span>
+      <h1>Postagens</h1>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="sm" id="pasta">Abrir pasta de vídeos</button>
+      <button class="sm" id="recarregar">Atualizar lista</button>
+    </div>
+  </header>
+
+  <p class="msg" id="msg" hidden></p>
+  <nav class="tabs" id="tabs">
+    <button data-f="fila" class="on">A postar<b id="nFila">0</b></button>
+    <button data-f="feitos">Já postados<b id="nFeitos">0</b></button>
+    <button data-f="todos">Todos<b id="nTodos">0</b></button>
+  </nav>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+const REDES = [
+  {id:'youtube',   nome:'YouTube',   cor:'var(--yt)', textos:['YouTube: título','YouTube: descrição']},
+  {id:'tiktok',    nome:'TikTok',    cor:'var(--tt)', textos:['TikTok']},
+  {id:'instagram', nome:'Instagram', cor:'var(--ig)', textos:['Instagram']}
+];
+const $ = id => document.getElementById(id);
+let VIDEOS = [], filtro = 'fila';
+try{ filtro = localStorage.getItem('zuco.postagens.filtro') || 'fila'; }catch(e){}
+
+const completo = v => REDES.every(r => v.postado[r.id]);
+const titulo = v => {
+  const yt = v.textos['YouTube: título'];
+  if(yt) return yt.replace(/\s*#shorts\b/i, '').trim();
+  return v.arquivo.replace(/\.(mp4|webm)$/i, '').replace(/[-_]+/g, ' ');
+};
+const dataBR = s => { if(!s) return ''; const [d, h] = s.split(' '); const [a, m, dd] = d.split('-'); return dd+'/'+m+(h ? ' '+h : ''); };
+
+function aviso(t){ const m = $('msg'); m.hidden = !t; m.textContent = t || ''; }
+
+async function carregar(){
+  try{
+    const r = await fetch('/api/postagens'); if(!r.ok) throw new Error();
+    VIDEOS = (await r.json()).videos || []; aviso('');
+  }catch(e){
+    aviso('Não consegui falar com o estúdio. Abra pelo atalho "Estudio do Zuco" e deixe a janela preta aberta.');
+    VIDEOS = [];
+  }
+  render();
+}
+
+async function salvar(v, dados){
+  try{
+    const r = await fetch('/api/postagens', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({arquivo:v.arquivo, ...dados})});
+    const j = await r.json(); if(!r.ok) throw new Error(j.erro);
+    REDES.forEach(x => v.postado[x.id] = j.estado[x.id] || null); v.agendado = j.estado.agendado || '';
+    aviso('');
+  }catch(e){ aviso('Não consegui salvar: '+(e.message || 'servidor desligado')+'.'); }
+  render();
+}
+
+function render(){
+  const fila = VIDEOS.filter(v => !completo(v)), feitos = VIDEOS.filter(completo);
+  $('nFila').textContent = fila.length; $('nFeitos').textContent = feitos.length; $('nTodos').textContent = VIDEOS.length;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.f === filtro));
+  // fila: agendados primeiro (pela data), depois o mais antigo; postados: o mais recente primeiro
+  let itens = filtro === 'fila' ? fila.slice().sort((a, b) => (a.agendado || '9999').localeCompare(b.agendado || '9999') || a.criado - b.criado)
+            : filtro === 'feitos' ? feitos.slice().reverse() : VIDEOS.slice().reverse();
+  const list = $('list'); list.innerHTML = '';
+  if(!itens.length){
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = filtro === 'fila' ? (VIDEOS.length ? 'Tudo postado. Hora de fazer mais vídeos.' : 'Nenhum vídeo ainda. Exporte um vídeo no estúdio e ele aparece aqui.')
+                  : 'Nada por aqui ainda.';
+    list.appendChild(e); return;
+  }
+  itens.forEach(v => list.appendChild(cartao(v)));
+}
+
+function cartao(v){
+  const c = document.createElement('article'); c.className = 'card' + (completo(v) ? ' done' : '');
+  // miniatura: o vídeo só carrega quando clica (a pasta pode ter vídeos grandes)
+  const th = document.createElement('div'); th.className = 'thumb'; th.title = 'Assistir'; th.textContent = '▶';
+  th.addEventListener('click', () => {
+    if(th.querySelector('video')) return;
+    const vd = document.createElement('video'); vd.src = v.url; vd.controls = true; vd.autoplay = true; vd.playsInline = true;
+    th.textContent = ''; th.appendChild(vd);
+  }, {once:true});
+
+  const info = document.createElement('div'); info.className = 'info';
+  const h = document.createElement('h2'); h.className = 'title'; h.textContent = titulo(v);
+
+  const meta = document.createElement('div'); meta.className = 'meta';
+  const cri = new Date(v.criado * 1000);
+  const s1 = document.createElement('span'); s1.textContent = 'feito em ' + cri.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+  const lab = document.createElement('label'); lab.textContent = 'postar em ';
+  const dt = document.createElement('input'); dt.type = 'date'; dt.value = v.agendado || '';
+  dt.addEventListener('change', () => salvar(v, {agendado: dt.value}));
+  lab.appendChild(dt);
+  const abrir = document.createElement('button'); abrir.className = 'sm'; abrir.textContent = 'Mostrar na pasta';
+  abrir.addEventListener('click', () => abrirPasta('videos/' + v.arquivo));
+  meta.append(s1, lab, abrir);
+
+  const redes = document.createElement('div'); redes.className = 'redes';
+  REDES.forEach(r => {
+    const ok = !!v.postado[r.id];
+    const b = document.createElement('button'); b.className = 'rede' + (ok ? ' ok' : ''); b.style.setProperty('--c', r.cor);
+    b.title = ok ? 'Clique para desmarcar' : 'Clique quando postar no ' + r.nome;
+    b.setAttribute('aria-pressed', ok);
+    const i = document.createElement('i'); const n = document.createElement('span'); n.textContent = r.nome;
+    b.append(i, n);
+    if(ok){ const sm = document.createElement('small'); sm.textContent = 'postado ' + dataBR(v.postado[r.id]); b.appendChild(sm); }
+    b.addEventListener('click', () => salvar(v, {rede: r.id, postado: !ok}));
+    redes.appendChild(b);
+  });
+
+  const det = document.createElement('details');
+  const sum = document.createElement('summary'); sum.textContent = 'Textos para copiar'; det.appendChild(sum);
+  const chaves = Object.keys(v.textos);
+  if(!chaves.length){
+    const p = document.createElement('p'); p.className = 'muted'; p.style.fontSize = '14px';
+    p.textContent = 'Este vídeo não tem o .txt de textos ao lado. Vídeos exportados pelo estúdio já vêm com ele.'; det.appendChild(p);
+  }
+  chaves.forEach(k => {
+    const w = document.createElement('div'); w.className = 'txt';
+    const row = document.createElement('div'); row.className = 'row';
+    const lb = document.createElement('b'); lb.textContent = k;
+    const bt = document.createElement('button'); bt.className = 'sm'; bt.textContent = 'Copiar';
+    const pre = document.createElement('pre'); pre.textContent = v.textos[k];
+    bt.addEventListener('click', async () => {
+      try{ await navigator.clipboard.writeText(v.textos[k]); bt.textContent = 'Copiado'; }
+      catch(e){ const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(pre); s.removeAllRanges(); s.addRange(rg); bt.textContent = 'Ctrl+C'; }
+      setTimeout(() => bt.textContent = 'Copiar', 1500);
+    });
+    row.append(lb, bt); w.append(row, pre); det.appendChild(w);
+  });
+
+  info.append(h, meta, redes, det);
+  c.append(th, info);
+  return c;
+}
+
+async function abrirPasta(caminho){
+  try{ const r = await fetch('/api/abrir-pasta', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({caminho})});
+    if(!r.ok) throw new Error((await r.json()).erro); }
+  catch(e){ aviso('Não consegui abrir a pasta: ' + (e.message || 'servidor desligado') + '.'); }
+}
+
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  filtro = b.dataset.f; try{ localStorage.setItem('zuco.postagens.filtro', filtro); }catch(e){}
+  render();
+});
+$('recarregar').addEventListener('click', carregar);
+$('pasta').addEventListener('click', () => abrirPasta('videos'));
+// quando volta para esta janela (ex.: depois de exportar um vídeo no estúdio), a lista se atualiza sozinha
+addEventListener('focus', carregar);
+carregar();
+</script>
+</body>
+</html>

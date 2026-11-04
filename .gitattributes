@@ -1,0 +1,3 @@
+*.bat text eol=crlf
+*.glb binary
+*.mp3 binary

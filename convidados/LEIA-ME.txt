@@ -1,0 +1,3 @@
+Coloque aqui os objetos 3D em formato .glb.
+O nome do arquivo e o nome do convidado no roteiro (ex.: geladeira.glb -> "convidado": "geladeira").
+Onde baixar de graca: poly.pizza, quaternius.com, kenney.nl. Ou gere em meshy.ai / tripo3d.ai.

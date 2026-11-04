@@ -1,0 +1,76 @@
+{
+  "titulo": "Por que os humanos usam óculos?",
+  "cenario": "lago",
+  "convidado": "oculos",
+  "falas": [
+    {
+      "quem": "mascote",
+      "texto": "Ô, óculos. Por que os humanos usam vocês na cara?",
+      "camera": "geral",
+      "acao": "pulo"
+    },
+    {
+      "quem": "convidado",
+      "texto": "Ninguém te contou? O olho humano vem de fábrica sem tampa.",
+      "camera": "convidado",
+      "reacao": "arregalar"
+    },
+    {
+      "quem": "mascote",
+      "texto": "Sem tampa?",
+      "camera": "susto",
+      "acao": "tremer"
+    },
+    {
+      "quem": "convidado",
+      "texto": "Sem tampa. A paisagem entra pelo olho e escorre pelos lados da cabeça.",
+      "camera": "baixo",
+      "acao": "crescer"
+    },
+    {
+      "quem": "convidado",
+      "texto": "A gente foi inventado pra segurar a paisagem lá dentro.",
+      "camera": "convidado",
+      "acao": "concordar"
+    },
+    {
+      "quem": "mascote",
+      "texto": "E quem enxerga bem sem óculos?",
+      "camera": "dois",
+      "acao": "olhar"
+    },
+    {
+      "quem": "convidado",
+      "texto": "Essa gente pisca muito rápido. Piscar é tampar o olho na mão.",
+      "camera": "zoom",
+      "reacao": "balancar"
+    },
+    {
+      "quem": "mascote",
+      "texto": "Faz sentido. E essas perninhas aí atrás?",
+      "camera": "mascote"
+    },
+    {
+      "quem": "convidado",
+      "texto": "São ganchos. Se a orelha soltar, a pessoa esquece onde está.",
+      "camera": "giro",
+      "acao": "girar"
+    },
+    {
+      "quem": "mascote",
+      "texto": "Por isso todo mundo procura o óculos que está na própria cabeça.",
+      "camera": "paisagem",
+      "acao": "flutuar"
+    },
+    {
+      "quem": "convidado",
+      "texto": "Exato. A cabeça enche de paisagem e a memória transborda.",
+      "camera": "cima",
+      "reacao": "cair"
+    }
+  ],
+  "final": {
+    "relatorio": "os óculos seguram a paisagem na cabeça",
+    "resposta": "Ou servem pra enxergar. Sei lá."
+  }
+}

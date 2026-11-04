@@ -1,0 +1,36 @@
+{
+  "formato": "obvio",
+  "titulo": "Por que o cadeado tem um furo de chave?",
+  "cenario": "podcast",
+  "convidado": "cadeado",
+  "clima": "divertida",
+  "vozes": {
+    "mascote": {"voz": "pt-BR-AntonioNeural"},
+    "convidado": {"voz": "pt-BR-FranciscaNeural"}
+  },
+  "falas": [
+    {"quem": "mascote", "texto": "Cadeado, pra que serve esse furo aí embaixo?", "camera": "geral", "acao": "curioso"},
+    {"quem": "convidado", "texto": "Isso não é furo. É o meu ouvido.", "camera": "convidado", "reacao": "arregalar"},
+    {"quem": "mascote", "texto": "Ouvido?", "camera": "susto", "acao": "espanto", "corta": true, "som": "tum"},
+    {"quem": "convidado", "texto": "Cadeado só abre quando escuta a senha certa.", "camera": "ombro"},
+    {"quem": "mascote", "texto": "E quem fala a senha?", "camera": "mascote", "acao": "duvida"},
+    {"quem": "convidado", "texto": "A chave. Ela entra e sussurra bem baixinho.", "camera": "zoom", "acao": "malandro", "som": "suspense"},
+    {"quem": "mascote", "texto": "E esses dentinhos da chave?", "camera": "dois", "acao": "aproximar"},
+    {"quem": "convidado", "texto": "É o sotaque. Cada chave fala de um jeito.", "camera": "convidado"},
+    {"quem": "mascote", "texto": "Então a chave errada...", "camera": "mascote", "acao": "vesgo"},
+    {"quem": "convidado", "texto": "Fala outra língua. Eu não entendo e continuo fechado.", "camera": "baixo", "acao": "crescer"},
+    {"quem": "mascote", "texto": "Mentira!", "camera": "susto", "acao": "tremer", "corta": true},
+    {"quem": "convidado", "texto": "E tem mais. Eu também tenho memória.", "camera": "ombro", "acao": "olhar"},
+    {"quem": "mascote", "texto": "Memória de quê?", "camera": "mascote", "reacao": "curioso"},
+    {"quem": "convidado", "texto": "De cada segredo que as chaves já me contaram.", "camera": "zoom", "acao": "malandro"},
+    {"quem": "mascote", "texto": "E você nunca contou pra ninguém?", "camera": "dois", "acao": "aproximar"},
+    {"quem": "convidado", "texto": "Nunca. Por isso me chamam de cadeado. Boca fechada.", "camera": "convidado", "acao": "concordar", "som": "ding"},
+    {"quem": "mascote", "texto": "Faz sentido...", "camera": "mascote", "acao": "balancar"},
+    {"quem": "convidado", "texto": "E cadeado velho fica surdo. Por isso emperra.", "camera": "ombro", "acao": "encolher"},
+    {"quem": "mascote", "texto": "Por isso o pessoal sacode a chave lá dentro!", "camera": "giro", "acao": "pulo"},
+    {"quem": "convidado", "texto": "Exato. E ainda grita comigo. Não adianta nada.", "camera": "convidado", "acao": "revirar"},
+    {"quem": "mascote", "texto": "Tem que falar baixinho...", "camera": "mascote", "acao": "piscadela", "corta": true},
+    {"quem": "convidado", "texto": "Baixinho e com educação. Cadeado também tem sentimento.", "camera": "ombro", "reacao": "concordar"}
+  ],
+  "final": {"relatorio": "o cadeado é um ouvido de ferro", "resposta": "Eu só tranco portão, gente."}
+}
