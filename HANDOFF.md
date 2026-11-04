@@ -23,9 +23,12 @@ Estúdio local (navegador + `servidor.py`, porta **8766**) que transforma um rot
 - Exemplo pronto: `roteiros/exemplo-descarga.json` (5 blocos, ~26 s), que abre por padrão.
 - Tudo do Estúdio do Zuco (vozes ElevenLabs, música, efeitos, postagens, atualização, formatos antigos) continua funcionando.
 
+## 3b. Vídeos longos
+O cartão **Vídeo por partes** gera o prompt de cada parte (tamanho escolhido: 30 s a 3 min). O cenário (palco) e as peças ficam iguais; cada parte acrescenta elementos. Exemplo: **Exemplo: prédio (2 partes)** (cerca de 77 s). Detalhes no AGENTS.md.
+
 ## 4. Ainda não feito / próximos passos (em ordem)
 1. **Testar no PC do Marcelo** com a voz da ElevenLabs (na nuvem a voz não roda): conferir a sincronia por palavra e o visual com GPU. Ajustar cores e luz do exemplo conforme o gosto dele.
-2. **Primeiro vídeo de verdade** (tema a escolher), seguindo o fluxo da seção 2. Cada tema novo exige peças novas; o que se repetir vira biblioteca.
+2. **Primeiro vídeo de verdade com a IA** (o monitor do primeiro teste ficou ruim: camadas de vidro empilhadas; o novo prompt pede peças sólidas, vista explodida e palco fixo; ver se melhorou) (tema a escolher), seguindo o fluxo da seção 2. Cada tema novo exige peças novas; o que se repetir vira biblioteca.
 3. **Biblioteca de peças reutilizáveis** (`modulos/pecas/*.json` ou similar): tubo com válvula, engrenagem, mola, termômetro, ventilador, copo, etc., para a IA e o Marcelo reaproveitarem.
 4. **Editor de linha do tempo mais completo** (estilo CapCut): hoje há reordenar, esticar e gravar bloco; faltam cortar um bloco ao meio, mais transições (deslizar) e uma régua visual com os blocos em largura proporcional.
 5. **Botão "Criar peça com IA"** (Claude Haiku 5.5 via API): a IA devolve **JSON de peça** (não código), validado antes de entrar.

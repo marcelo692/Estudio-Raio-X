@@ -1,0 +1,600 @@
+{
+ "formato": "explica",
+ "parte": 1,
+ "total": 2,
+ "titulo": "Por que um prédio não cai?",
+ "clima": "animada",
+ "plano": [
+  {
+   "parte": 1,
+   "titulo": "Colunas e aço",
+   "resumo": "Colunas, vergalhão e a primeira laje; o peso empurra o terreno."
+  },
+  {
+   "parte": 2,
+   "titulo": "Fundação e andares",
+   "resumo": "Estacas na rocha, segundo andar e paredes; resumo final."
+  }
+ ],
+ "falas": [
+  {
+   "quem": "mascote",
+   "texto": "Um prédio pesa milhares de toneladas e não cai. Como isso é possível?",
+   "bloco": "p1b1",
+   "acao": "curioso"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Primeiro, a gente levanta as colunas, que seguram o peso de tudo.",
+   "bloco": "p1b2",
+   "acao": "pulo"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Mas concreto sozinho é forte para apertar, e fraquinho para esticar.",
+   "bloco": "p1b3",
+   "acao": "tremer"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Por isso entra o vergalhão: barras de aço escondidas dentro do concreto.",
+   "bloco": "p1b4",
+   "acao": "espanto"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Com o aço lá dentro, a coluna aguenta apertar e esticar sem rachar.",
+   "bloco": "p1b5",
+   "acao": "concordar"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Agora precisamos de um chão para o primeiro andar, apoiado nas colunas.",
+   "bloco": "p1b6",
+   "acao": "olhar"
+  },
+  {
+   "quem": "mascote",
+   "texto": "O peso desse chão desce pelas colunas e vai parar lá embaixo, no terreno.",
+   "bloco": "p1b7",
+   "acao": "curioso"
+  },
+  {
+   "quem": "mascote",
+   "texto": "Só que todo esse peso empurra a terra para baixo. E agora?",
+   "bloco": "p1b8",
+   "acao": "duvida"
+  }
+ ],
+ "animacao": {
+  "ambiente": {
+   "fundo": [
+    "#4a86c0",
+    "#86b6dc",
+    "#cfdbe2",
+    "#fff4dc"
+   ],
+   "chao": "#86ad74",
+   "chao_y": -1.6
+  },
+  "palco": {
+   "alvo": [
+    -0.1,
+    2.3,
+    0
+   ],
+   "dist": 9.5,
+   "alt": 1.5,
+   "azim": 0
+  },
+  "pecas": {
+   "coluna": {
+    "partes": [
+     {
+      "nome": "concreto",
+      "forma": "caixa",
+      "tam": [
+       0.26,
+       2.6,
+       0.26
+      ],
+      "cor": "#a9a39a",
+      "vidro": 0.6
+     },
+     {
+      "nome": "aco1",
+      "forma": "cilindro",
+      "raio": 0.03,
+      "alt": 2.5,
+      "pos": [
+       -0.06,
+       0,
+       0
+      ],
+      "cor": "#e2662b"
+     },
+     {
+      "nome": "aco2",
+      "forma": "cilindro",
+      "raio": 0.03,
+      "alt": 2.5,
+      "pos": [
+       0.06,
+       0,
+       0
+      ],
+      "cor": "#e2662b"
+     }
+    ]
+   }
+  },
+  "grupos": {
+   "acos": [
+    "c1.aco1",
+    "c1.aco2",
+    "c2.aco1",
+    "c2.aco2",
+    "c3.aco1",
+    "c3.aco2",
+    "c4.aco1",
+    "c4.aco2"
+   ],
+   "predio": [
+    "sapata",
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "laje1"
+   ]
+  },
+  "elementos": [
+   {
+    "id": "solo",
+    "tipo": "caixa",
+    "tam": [
+     5.5,
+     1.0,
+     3
+    ],
+    "pos": [
+     -0.1,
+     -0.505,
+     0
+    ],
+    "cor": "#8e4f26",
+    "vidro": 0.78,
+    "contorno": "#4a2813",
+    "oculto": false
+   },
+   {
+    "id": "rocha",
+    "tipo": "caixa",
+    "tam": [
+     5.5,
+     0.6,
+     3
+    ],
+    "pos": [
+     -0.1,
+     -1.3,
+     0
+    ],
+    "cor": "#44525f",
+    "oculto": false
+   },
+   {
+    "id": "sapata",
+    "tipo": "caixa",
+    "tam": [
+     2.0,
+     0.3,
+     1.4
+    ],
+    "pos": [
+     0.8,
+     0.15,
+     0
+    ],
+    "cor": "#7d7a74",
+    "oculto": false
+   },
+   {
+    "id": "c1",
+    "peca": "coluna",
+    "pos": [
+     0.2,
+     1.6,
+     0.4
+    ]
+   },
+   {
+    "id": "c2",
+    "peca": "coluna",
+    "pos": [
+     0.2,
+     1.6,
+     -0.4
+    ]
+   },
+   {
+    "id": "c3",
+    "peca": "coluna",
+    "pos": [
+     1.4,
+     1.6,
+     0.4
+    ]
+   },
+   {
+    "id": "c4",
+    "peca": "coluna",
+    "pos": [
+     1.4,
+     1.6,
+     -0.4
+    ]
+   },
+   {
+    "id": "laje1",
+    "tipo": "caixa",
+    "tam": [
+     1.9,
+     0.2,
+     1.3
+    ],
+    "pos": [
+     0.8,
+     3.0,
+     0
+    ],
+    "cor": "#7c8aa5"
+   }
+  ],
+  "blocos": [
+   {
+    "id": "p1b1",
+    "camera": {
+     "base": true,
+     "zoom": 1.4,
+     "alvo": [
+      0.8,
+      1.0,
+      0
+     ]
+    },
+    "acoes": [
+     {
+      "faz": "rotulo",
+      "alvo": "sapata.topo",
+      "texto": "FUNDAÇÃO",
+      "desloc": [
+       0.1,
+       0.09
+      ],
+      "em": 0.8
+     },
+     {
+      "faz": "destacar",
+      "alvo": "sapata",
+      "em": {
+       "palavra": "pesa"
+      },
+      "dur": 1
+     }
+    ]
+   },
+   {
+    "id": "p1b2",
+    "camera": {
+     "base": true,
+     "zoom": 1.4,
+     "alvo": [
+      0.8,
+      1.0,
+      0
+     ]
+    },
+    "acoes": [
+     {
+      "faz": "crescer",
+      "alvo": "c1",
+      "em": 0.6,
+      "dur": 0.8
+     },
+     {
+      "faz": "crescer",
+      "alvo": "c2",
+      "em": 1.0,
+      "dur": 0.8
+     },
+     {
+      "faz": "crescer",
+      "alvo": "c3",
+      "em": 1.4,
+      "dur": 0.8
+     },
+     {
+      "faz": "crescer",
+      "alvo": "c4",
+      "em": 1.8,
+      "dur": 0.8
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "c4.topo",
+      "texto": "COLUNAS",
+      "desloc": [
+       -0.05,
+       0.07
+      ],
+      "em": 2.4
+     }
+    ]
+   },
+   {
+    "id": "p1b3",
+    "camera": {
+     "alvo": "c1",
+     "zoom": 1.9,
+     "alt": 0.4
+    },
+    "transicao": {
+     "tipo": "fade",
+     "dur": 0.3
+    },
+    "acoes": [
+     {
+      "faz": "girar",
+      "alvo": "c1",
+      "eixo": "z",
+      "graus": -5,
+      "em": 1.6,
+      "dur": 0.6
+     },
+     {
+      "faz": "cor",
+      "alvo": "c1.concreto",
+      "para": "#d9534f",
+      "em": 1.6,
+      "dur": 0.5
+     },
+     {
+      "faz": "vibrar",
+      "alvo": "c1",
+      "em": 1.6,
+      "dur": 0.8,
+      "forca": 0.04
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "c1.topo",
+      "texto": "RACHOU",
+      "desloc": [
+       0.15,
+       0.0
+      ],
+      "em": 2.2
+     }
+    ]
+   },
+   {
+    "id": "p1b4",
+    "camera": {
+     "alvo": "c1",
+     "zoom": 1.9,
+     "alt": 0.4
+    },
+    "acoes": [
+     {
+      "faz": "girar",
+      "alvo": "c1",
+      "eixo": "z",
+      "graus": 5,
+      "em": 0,
+      "dur": 0.5
+     },
+     {
+      "faz": "cor",
+      "alvo": "c1.concreto",
+      "para": "#a9a39a",
+      "em": 0,
+      "dur": 0.5
+     },
+     {
+      "faz": "mostrar",
+      "alvo": "acos",
+      "em": {
+       "palavra": "vergalhão"
+      },
+      "dur": 0.5
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "c1.centro",
+      "texto": "AÇO",
+      "desloc": [
+       0.17,
+       0.16
+      ],
+      "em": {
+       "palavra": "aço"
+      }
+     }
+    ]
+   },
+   {
+    "id": "p1b5",
+    "camera": {
+     "base": true
+    },
+    "transicao": {
+     "tipo": "fade",
+     "dur": 0.3
+    },
+    "acoes": [
+     {
+      "faz": "destacar",
+      "alvo": "c1",
+      "em": 0.5,
+      "dur": 0.7
+     },
+     {
+      "faz": "destacar",
+      "alvo": "c2",
+      "em": 0.8,
+      "dur": 0.7
+     },
+     {
+      "faz": "destacar",
+      "alvo": "c3",
+      "em": 1.1,
+      "dur": 0.7
+     },
+     {
+      "faz": "destacar",
+      "alvo": "c4",
+      "em": 1.4,
+      "dur": 0.7
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "c4.topo",
+      "texto": "COLUNA FORTE",
+      "desloc": [
+       -0.05,
+       0.07
+      ],
+      "em": 1.6
+     }
+    ]
+   },
+   {
+    "id": "p1b6",
+    "camera": {
+     "base": true
+    },
+    "acoes": [
+     {
+      "faz": "crescer",
+      "alvo": "laje1",
+      "em": 0.8,
+      "dur": 1.0
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "laje1.dir",
+      "texto": "LAJE",
+      "desloc": [
+       -0.1,
+       0.07
+      ],
+      "em": 1.8
+     }
+    ]
+   },
+   {
+    "id": "p1b7",
+    "camera": {
+     "base": true
+    },
+    "acoes": [
+     {
+      "faz": "fluxo",
+      "de": "laje1.topo",
+      "via": [
+       [
+        0.2,
+        1.7,
+        0.4
+       ]
+      ],
+      "para": [
+       0.2,
+       0.3,
+       0.4
+      ],
+      "dur": 2.6,
+      "cor": "#ffcc33",
+      "qtd": 16,
+      "tam": 0.07,
+      "em": 0.6
+     },
+     {
+      "faz": "fluxo",
+      "de": "laje1.topo",
+      "via": [
+       [
+        1.4,
+        1.7,
+        0.4
+       ]
+      ],
+      "para": [
+       1.4,
+       0.3,
+       0.4
+      ],
+      "dur": 2.6,
+      "cor": "#ffcc33",
+      "qtd": 16,
+      "tam": 0.07,
+      "em": 0.6
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "laje1.topo",
+      "texto": "PESO",
+      "desloc": [
+       0.2,
+       0.07
+      ],
+      "em": 0.8,
+      "dur": 3
+     }
+    ]
+   },
+   {
+    "id": "p1b8",
+    "camera": {
+     "base": true,
+     "zoom": 1.3,
+     "alvo": "sapata"
+    },
+    "acoes": [
+     {
+      "faz": "mover",
+      "alvo": "predio",
+      "delta": [
+       0,
+       -0.08,
+       0
+      ],
+      "em": 0.8,
+      "dur": 1.5
+     },
+     {
+      "faz": "vibrar",
+      "alvo": "sapata",
+      "em": 0.8,
+      "dur": 1.2
+     },
+     {
+      "faz": "rotulo",
+      "alvo": "solo.topo",
+      "texto": "E O CHÃO?",
+      "desloc": [
+       -0.2,
+       0.12
+      ],
+      "em": 1.4
+     }
+    ]
+   }
+  ]
+ },
+ "verificar": [
+  "Concreto resiste bem à compressão e mal à tração; o aço (vergalhão) resolve a tração.",
+  "O peso das lajes desce pelas colunas até a fundação."
+ ]
+}

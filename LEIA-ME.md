@@ -56,3 +56,10 @@ Só a **voz neural** entra no vídeo. A voz do navegador serve só para o previe
 4. Para pedir uma alteração à IA ("faz a câmera chegar mais perto no bloco 3"), peça só o trecho novo em JSON, cole no cartão e aperte **Mesclar por id**: o que tem o mesmo id é trocado e o resto fica como está.
 5. **Gravar todos os blocos** salva um MP4 por bloco em `videos/` para você conferir. Quando estiver bom, **Exportar vídeo** gera o vídeo completo (é igual aos blocos juntos).
 6. O botão **Exemplo: descarga** carrega uma animação pronta para você ver como funciona.
+
+## Vídeos de 1 a 3 minutos (por partes)
+1. No cartão **Vídeo por partes**, escreva o tema e escolha a duração. O estúdio mostra em quantas partes vai dividir.
+2. Aperte **Copiar prompt** (Parte 1), cole na IA, copie a resposta e cole na caixa de baixo. Aperte **Adicionar parte ao vídeo**.
+3. Escolha a **Parte 2** e repita. O prompt das partes seguintes já leva tudo o que existe (peças e elementos) para a IA reaproveitar; o cenário não muda.
+4. Assista no player. Para ajustar um trecho, use a lista de blocos (arrastar, ▶, ⏺, −/+, ✕) ou cole só um pedaço novo em **Animação (Raio-X)** e use **Mesclar por id**.
+5. Quer ver como fica? Clique em **Exemplo: prédio (2 partes)**.

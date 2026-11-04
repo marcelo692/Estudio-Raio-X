@@ -57,9 +57,14 @@ const texCache = new Map();
 /* =========================================================
    MUNDO: peças, elementos e nós animáveis
    ========================================================= */
+// cores claras demais estouram e viram névoa: limita o brilho e dá um pouco mais de cor
+function corSegura(c){
+  const k = new T3.Color(c || '#cfd6dc'), h = {}; k.getHSL(h);
+  k.setHSL(h.h, Math.min(1, h.s*1.12 + (h.s < .08 ? 0 : .04)), Math.min(h.l, .74)); return k;
+}
 function material(p){
-  const m = new T3.MeshStandardMaterial({color: p.cor || '#cfd6dc', flatShading:true, roughness:.85, metalness:0});
-  if(p.vidro){ m.transparent = true; m.opacity = clamp(num(p.vidro === true ? .28 : p.vidro, .28), .05, 1); m.depthWrite = false; m.roughness = .25; }
+  const m = new T3.MeshStandardMaterial({color: corSegura(p.cor), flatShading:true, roughness:.85, metalness:0});
+  if(p.vidro){ m.transparent = true; m.opacity = clamp(num(p.vidro === true ? .4 : p.vidro, .4), .22, 1); m.depthWrite = false; m.roughness = .25; }
   if(p.brilho){ m.emissive = new T3.Color(p.cor || '#ffffff'); m.emissiveIntensity = num(p.brilho, .6); }
   m.userData.e = {c: m.emissive.clone(), i: m.emissiveIntensity};
   return m;
@@ -111,7 +116,7 @@ function registrar(nome, obj, mats, def, nivelObj){
   const no = {nome, obj, mats, nivelObj, base:{
     pos: vec(def.pos), rot: vec(def.rot), esc: Array.isArray(def.esc) ? vec(def.esc, [1,1,1]) : [num(def.esc,1), num(def.esc,1), num(def.esc,1)],
     vis: def.oculto === true ? 0 : 1, oculto: def.oculto, nivel: num(def.nivel, 1),
-    cor: new T3.Color(def.cor || '#ffffff')}};
+    cor: corSegura(def.cor || '#ffffff')}};
   nos[nome] = no; return no;
 }
 function criarElemento(def, pecas){
@@ -163,7 +168,7 @@ function montar(a){
   layout = {pip: Object.assign({x:.03, y:.63, w:.36}, (a.layout || {}).pip || {}), legenda: num((a.layout || {}).legenda, 54)};
   // chão
   const fl = new T3.Mesh(new T3.CircleGeometry(40, 48), new T3.MeshStandardMaterial({color: amb.chao || '#d8c7a3', flatShading:true, roughness:1}));
-  fl.rotation.x = -Math.PI/2; fl.receiveShadow = true; fl.userData.chao = true; mundo.add(fl); floor = fl;
+  fl.rotation.x = -Math.PI/2; fl.position.y = num(amb.chao_y, 0); fl.receiveShadow = true; fl.userData.chao = true; mundo.add(fl); floor = fl;
   const pecas = a.pecas && typeof a.pecas === 'object' ? a.pecas : {};
   (Array.isArray(a.elementos) ? a.elementos : []).forEach(d => criarElemento(d, pecas));
   // enquadramento padrão: tudo no quadro, de frente
@@ -174,6 +179,8 @@ function montar(a){
   const k = 1/(2*Math.tan(rad(21)));
   const dist = Math.max(s.y*k*1.25, s.x*k*(16/9)*1.15, 3) + s.z*.5;
   quadro = {alvo:[c.x, c.y, c.z], dist, alt:s.y*.2, azim:0, fov:42};
+  // "palco": a câmera principal do vídeo; os blocos só variam em torno dela ("base":true volta para ela)
+  if(a.palco && typeof a.palco === 'object') ['alvo','dist','alt','azim','fov'].forEach(k => { if(a.palco[k] != null) quadro[k] = a.palco[k]; });
   if(a.ambiente) aplicarAmbiente();
 }
 function aplicarAmbiente(){
@@ -304,7 +311,7 @@ function criarSprite(){
   const s = new T3.Sprite(new T3.SpriteMaterial({transparent:true, depthTest:false, fog:false, sizeAttenuation:false})); s.renderOrder = 20; s.visible = false; mundo.add(s); return s;
 }
 const TAM_ROTULO = {pilula:.055, titulo:.1, temp:.07};
-const _cf = new T3.Vector3(), _cr = new T3.Vector3(), _cu = new T3.Vector3();
+const _cl = new T3.Vector3(), _cf = new T3.Vector3(), _cr = new T3.Vector3(), _cu = new T3.Vector3();
 // põe o sprite no ponto p (mundo) com um deslocamento [dx,dy] em fração da altura da tela e o tamanho h (fração da altura)
 function posicionarSprite(spr, p, des, h, aspect, k){
   const cam = E.cam; cam.updateMatrixWorld();
@@ -314,6 +321,18 @@ function posicionarSprite(spr, p, des, h, aspect, k){
   const maxW = .9*9/16; if(h*aspect > maxW) h = maxW/aspect; // nunca passa da largura do vídeo
   const sy = h*2*Math.tan(rad(cam.fov/2))*k;
   spr.scale.set(sy*aspect, sy, 1);
+  // mantém o rótulo inteiro dentro da tela: empurra o centro para dentro se a borda passar
+  {
+    const ca = cam.aspect || 9/16, hwN = (h*aspect)*(1/ca)*Math.min(1, k), hhN = h*Math.min(1, k);   // meia largura/altura em NDC (aprox.)
+    _cl.copy(spr.position).project(cam);
+    const nx = clamp(_cl.x, -(.97 - hwN), .97 - hwN); let ny = clamp(_cl.y, -(.95 - hhN), .95 - hhN);
+    // não fica em cima da legenda (faixa central do texto falado): sobe ou desce para fora dela
+    const lc = 1 - 2*(layout.legenda/100), fx = .12 + hhN;
+    if(Math.abs(ny - lc) < fx) ny = (lc + fx + hhN < .95) ? lc + fx : lc - fx;
+    const sw = 2*Math.tan(rad(cam.fov/2))*prof*ca;
+    if(nx !== _cl.x) spr.position.addScaledVector(_cr, (nx - _cl.x)/2*sw);
+    if(ny !== _cl.y) spr.position.addScaledVector(_cu, (ny - _cl.y)/2*sh);
+  }
 }
 function criarRotulo(a, t0, t1){
   const estilo = a.estilo || 'pilula', cor = a.cor || (estilo === 'titulo' ? '#ffd60a' : '#2f6fe4');
@@ -383,9 +402,9 @@ function tempoDe(em, l){
   }
   return l.start;
 }
-const DUR = {mostrar:.4, esconder:.25, mover:.7, girar:.7, escalar:.45, cor:.5, nivel:1.2, destacar:.7, vibrar:.6, fluxo:2, temperatura:2};
+const DUR = {crescer:.9, mostrar:.4, esconder:.25, mover:.7, girar:.7, escalar:.45, cor:.5, nivel:1.2, destacar:.7, vibrar:.6, fluxo:2, temperatura:2};
 const EIXO = {x:0, y:1, z:2};
-function nomes(alvo){ return lista(alvo).filter(n => { if(typeof n === 'string' && nos[n]) return true; avisar('alvo "'+n+'" não existe'); return false; }); }
+function nomes(alvo){ const gr = anim && anim.grupos && typeof anim.grupos === 'object' ? anim.grupos : {}; const ex = []; lista(alvo).forEach(n => { if(typeof n === 'string' && Array.isArray(gr[n]) && !nos[n]) ex.push(...gr[n]); else ex.push(n); }); return ex.filter(n => { if(typeof n === 'string' && nos[n]) return true; avisar('alvo "'+n+'" não existe'); return false; }); }
 function compilarAcao(a, rec){
   if(!a || typeof a !== 'object'){ return; }
   const l = rec.l, t0 = tempoDe(a.em, l), dur = Math.max(.01, num(a.dur, DUR[a.faz] || .5)), t1 = t0 + dur;
@@ -395,12 +414,22 @@ function compilarAcao(a, rec){
     case 'mostrar': nomes(a.alvo).forEach(n => addSeg(n, 'vis', {t0, t1, to:1, ease: ease || 'pulo', mostrar:true})); break;
     case 'esconder': nomes(a.alvo).forEach(n => addSeg(n, 'vis', {t0, t1, to:0, ease: ease || 'suave'})); break;
     case 'mover': nomes(a.alvo).forEach(n => addSeg(n, 'pos', a.para ? {t0, t1, to:vec(a.para), ease} : {t0, t1, delta:vec(a.delta), ease})); break;
+    case 'crescer': nomes(a.alvo).forEach(n => { // o elemento brota do chão (ou da base dele), com a base parada
+      const no = nos[n], el = elems[n];
+      addSeg(n, 'vis', {t0, t1:t0 + .02, to:1, ease:'linear', mostrar:true});
+      if(!el){ return; }
+      const e = no.base.esc, p0 = no.base.pos, minY = (el.ancoras.base ? el.ancoras.base[1] : 0)*e[1], fin = .001;
+      addSeg(n, 'esc', {t0:t0 - .02, t1:t0, to:[e[0], fin, e[2]], ease:'linear'});
+      addSeg(n, 'pos', {t0:t0 - .02, t1:t0, to:[p0[0], p0[1] + minY*(1 - fin/e[1]), p0[2]], ease:'linear'});
+      addSeg(n, 'esc', {t0, t1, to:e.slice(), ease: ease || 'saida'});
+      addSeg(n, 'pos', {t0, t1, to:p0.slice(), ease: ease || 'saida'});
+    }); break;
     case 'girar': nomes(a.alvo).forEach(n => {
       let d = [0,0,0];
       if(Array.isArray(a.graus)) d = vec(a.graus); else if(EIXO[a.eixo] != null) d[EIXO[a.eixo]] = num(a.graus, 90); else d[1] = num(a.graus, 90);
       addSeg(n, 'rot', {t0, t1, delta:d, ease}); }); break;
     case 'escalar': nomes(a.alvo).forEach(n => addSeg(n, 'esc', {t0, t1, to: Array.isArray(a.para) ? vec(a.para, [1,1,1]) : [num(a.para,1), num(a.para,1), num(a.para,1)], ease})); break;
-    case 'cor': nomes(a.alvo).forEach(n => addSeg(n, 'cor', {t0, t1, to:new T3.Color(a.para || '#ffffff'), ease})); break;
+    case 'cor': nomes(a.alvo).forEach(n => addSeg(n, 'cor', {t0, t1, to:corSegura(a.para || '#ffffff'), ease})); break;
     case 'nivel': nomes(a.alvo).forEach(n => addSeg(n, 'nivel', {t0, t1, to:clamp(num(a.para, 1), 0, 1), ease})); break;
     case 'destacar': nomes(a.alvo).forEach(n => { pulsos.push({nome:n, t0, t1, tipo:'destacar', cor:a.cor || '#fff3b0'}); nos[n].temPulso = true; }); break;
     case 'vibrar': nomes(a.alvo).forEach(n => { pulsos.push({nome:n, t0, t1, tipo:'vibrar', amp:num(a.forca, .03)}); }); break;
@@ -413,11 +442,13 @@ function compilarAcao(a, rec){
   }
 }
 function normCam(c, prev){
-  const base = prev ? prev.b : quadro;
+  const base = (prev && !c.base) ? prev.b : quadro;
   const A = {}, B = {};
   ['alvo','dist','alt','azim'].forEach(k => {
     const d = base[k] != null ? base[k] : (k === 'alvo' ? (base.olha || [0,1,0]) : 0);
     A[k] = c[k] != null ? c[k] : d; B[k] = c[k+'_fim'] != null ? c[k+'_fim'] : A[k]; });
+  if(c.zoom != null && c.dist == null) A.dist = base.dist/clamp(num(c.zoom, 1), .3, 4);
+  if(c.zoom_fim != null && c['dist_fim'] == null) B.dist = base.dist/clamp(num(c.zoom_fim, 1), .3, 4); else if(c.dist_fim == null) B.dist = A.dist;
   A.fov = num(c.fov, base.fov || 42); B.fov = num(c.fov_fim, A.fov);
   const mv = c.movimento;
   if(mv === 'orbitar'){ B.azim = A.azim + num(c.graus, 50); }
@@ -591,7 +622,7 @@ function mesclar(base, novo){
     if(k === 'elementos' || k === 'blocos'){
       out[k] = Array.isArray(out[k]) ? out[k] : [];
       lista(novo[k]).forEach(it => { const i = it && it.id ? out[k].findIndex(x => x.id === it.id) : -1; if(i >= 0) out[k][i] = it; else out[k].push(it); });
-    } else if(k === 'pecas' || k === 'ambiente' || k === 'layout') out[k] = Object.assign({}, out[k] || {}, novo[k]);
+    } else if(k === 'pecas' || k === 'ambiente' || k === 'layout' || k === 'grupos') out[k] = Object.assign({}, out[k] || {}, novo[k]);
     else out[k] = novo[k];
   });
   return out;
@@ -678,77 +709,178 @@ RX.montarUI = function(host){
     + '#rxBlocos .rxn{font-weight:700;opacity:.6}#rxBlocos .rxd{opacity:.7;font-variant-numeric:tabular-nums}#rxBlocos .rxb{display:flex;gap:4px}'
     + '#rxEditor{width:100%;box-sizing:border-box;min-height:220px;font:12px/1.4 ui-monospace,Consolas,monospace}';
   document.head.appendChild(css);
-  host.innerHTML = '<div class="card"><h2>Animação (Raio-X)</h2>'
+  host.innerHTML = '<div class="card"><h2>Vídeo por partes (Raio-X)</h2>'
+    + '<p class="note">Vídeos longos saem em partes: o cenário e as peças ficam iguais e cada parte acrescenta elementos novos. Escolha o tamanho, copie o prompt da parte 1, cole na IA e traga a resposta aqui. Depois faça o mesmo com as próximas partes.</p>'
+    + '<div class="row"><input id="rxTema" type="text" placeholder="Tema do vídeo (ex.: Como funciona o monitor?)" style="flex:1;min-width:200px">'
+    + '<select id="rxDur">'+DURACOES.map(d => '<option value="'+d[0]+'">'+d[1]+'</option>').join('')+'</select>'
+    + '<select id="rxParte"></select><button class="btn primary" id="rxCopiar">Copiar prompt</button></div>'
+    + '<p class="note" id="rxInfo"></p>'
+    + '<textarea id="rxResp" spellcheck="false" placeholder="Cole aqui a resposta da IA (JSON da parte)" style="width:100%;box-sizing:border-box;min-height:110px;font:12px/1.4 ui-monospace,Consolas,monospace"></textarea>'
+    + '<div class="row"><button class="btn primary" id="rxAdd">Adicionar parte ao vídeo</button></div>'
+    + '<span class="msg" id="rxMsg2"></span></div>'
+    + '<div class="card"><h2>Animação (Raio-X)</h2>'
     + '<p class="note">O JSON da animação (peças, elementos e blocos) pode vir junto do roteiro ou ser colado aqui. “Mesclar” troca só o que tem o mesmo id e acrescenta o resto, para você pedir alterações pontuais à IA.</p>'
     + '<textarea id="rxEditor" spellcheck="false" aria-label="Animação em JSON"></textarea>'
-    + '<div class="row"><button class="btn primary" id="rxAplicar">Aplicar animação</button><button class="btn" id="rxMesclar">Mesclar por id</button><button class="btn" id="rxExemplo">Exemplo: descarga</button></div>'
+    + '<div class="row"><button class="btn primary" id="rxAplicar">Aplicar animação</button><button class="btn" id="rxMesclar">Mesclar por id</button><button class="btn" id="rxExemplo">Exemplo: descarga</button><button class="btn" id="rxExemplo2">Exemplo: prédio (2 partes)</button></div>'
     + '<span class="msg" id="rxMsg"></span>'
     + '<h2 style="margin-top:14px">Blocos</h2><div class="row" style="margin-bottom:8px"><button class="btn" id="rxGravarTodos">Gravar todos os blocos (para conferir)</button></div>'
     + '<p class="note" id="rxVazio" hidden>Este roteiro ainda não tem animação. Use o formato “Raio-X” no gerador de prompt.</p>'
     + '<ol id="rxBlocos"></ol></div>';
-  ui = {ed: host.querySelector('#rxEditor'), msg: host.querySelector('#rxMsg'), blocos: host.querySelector('#rxBlocos'), vazio: host.querySelector('#rxVazio')};
+  ui = {tema: host.querySelector('#rxTema'), dur: host.querySelector('#rxDur'), parte: host.querySelector('#rxParte'), info: host.querySelector('#rxInfo'), resp: host.querySelector('#rxResp'), msg2: host.querySelector('#rxMsg2'),
+    ed: host.querySelector('#rxEditor'), msg: host.querySelector('#rxMsg'), blocos: host.querySelector('#rxBlocos'), vazio: host.querySelector('#rxVazio')};
   host.querySelector('#rxAplicar').addEventListener('click', () => aplicarTexto('substituir'));
   host.querySelector('#rxGravarTodos').addEventListener('click', gravarTodos);
   host.querySelector('#rxMesclar').addEventListener('click', () => aplicarTexto('mesclar'));
   host.querySelector('#rxExemplo').addEventListener('click', () => { if(window.RAIOX_EXEMPLO) E.carregar(JSON.parse(JSON.stringify(window.RAIOX_EXEMPLO))); });
+  host.querySelector('#rxExemplo2').addEventListener('click', async () => {
+    const ex = window.RAIOX_EXEMPLO_PREDIO; if(!ex) return;
+    ui.dur.value = '60'; ui.tema.value = ex[0].titulo || '';
+    for(const parte of JSON.parse(JSON.stringify(ex))){ await aplicarParte(parte); }
+  });
+  host.querySelector('#rxDur').addEventListener('change', () => preencherPartes());
+  host.querySelector('#rxParte').addEventListener('change', infoParte);
+  host.querySelector('#rxCopiar').addEventListener('click', copiarPrompt);
+  host.querySelector('#rxAdd').addEventListener('click', adicionarParte);
+  preencherPartes(true);
   RX.sincronizarUI(); RX.atualizarAvisos();
 };
+function msg2(t, err){ if(!ui) return; ui.msg2.textContent = t; ui.msg2.className = 'msg' + (err ? ' err' : ''); }
+function estadoPartes(){ const s = E.script(), p = s && s.partes; return {total: p ? p.total : nPartes(+ui.dur.value), dur: +ui.dur.value, atual: p ? p.atual : 0}; }
+function preencherPartes(inicial){
+  const s = E.script(), p = s && s.partes;
+  if(inicial && p){ ui.dur.value = String(p.dur || ui.dur.value); if(s.tema_video) ui.tema.value = s.tema_video; }
+  const n = p && !inicial ? p.total : nPartes(+ui.dur.value), prox = p ? Math.min(n, (p.atual || 0) + 1) : 1;
+  ui.parte.innerHTML = ''; for(let k = 1; k <= n; k++){ const o = document.createElement('option'); o.value = k; o.textContent = 'Parte '+k+' de '+n; ui.parte.appendChild(o); }
+  ui.parte.value = String(prox); infoParte();
+}
+function infoParte(){
+  const n = ui.parte.options.length, k = +ui.parte.value || 1;
+  ui.info.textContent = n === 1 ? 'Vídeo curto, de uma parte só.' : 'Vídeo de cerca de '+Math.round(+ui.dur.value/60*10)/10+' min em '+n+' partes. '+(k === 1 ? 'A parte 1 cria o cenário e as peças base e já traz o plano das outras.' : 'A parte '+k+' recebe, dentro do prompt, tudo o que já existe para reaproveitar.');
+}
+function copiarPrompt(){
+  const k = +ui.parte.value || 1, n = ui.parte.options.length, s = E.script();
+  if(k > 1 && !(s && s.animacao)){ msg2('Primeiro adicione a parte 1 (o cenário e as peças base).', true); return; }
+  if(s && s.partes && k > 1 && k > (s.partes.atual || 0) + 1) msg2('Atenção: a parte '+((s.partes.atual||0)+1)+' ainda não foi adicionada.', true);
+  const plano = s && s.plano ? s.plano : null;
+  const txt = RX.prompt(ui.tema.value || (s && s.tema_video) || '', null, {parte:k, total:n, dur:Math.round(+ui.dur.value/n), plano});
+  const ok = () => msg2('Prompt da parte '+k+' de '+n+' copiado. Cole na IA e traga a resposta para a caixa abaixo.');
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => { ui.resp.value = txt; msg2('Não consegui copiar sozinho: o prompt está na caixa abaixo, selecione e copie.', true); });
+  else { ui.resp.value = txt; msg2('Prompt na caixa abaixo: selecione e copie.', true); }
+  window.__ultimoPrompt = txt;
+}
+async function adicionarParte(){
+  let j; const bruto = ui.resp.value.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  try{ j = JSON.parse(bruto); }catch(e){ msg2('O JSON está com erro: '+e.message, true); return; }
+  if(!j || typeof j !== 'object' || !Array.isArray(j.falas)){ msg2('Não achei o campo "falas" nesse JSON.', true); return; }
+  await aplicarParte(j);
+}
+async function aplicarParte(j){
+  const s = E.script(), k = +j.parte || 1, total = +j.total || ui.parte.options.length;
+  const dur = +ui.dur.value;
+  if(k === 1 || !s || !s.animacao){
+    j.partes = {total, atual:1, dur}; j.tema_video = ui.tema.value.trim() || j.titulo || '';
+    await E.carregar(j);
+    msg2('Parte 1 de '+total+' adicionada. Confira no player e depois copie o prompt da parte 2.');
+  } else {
+    const a = j.animacao && typeof j.animacao === 'object' ? j.animacao : {};
+    delete a.ambiente; delete a.palco; delete a.layout; // o cenário não muda entre as partes
+    const ids = new Set((s.animacao.blocos || []).map(b => b.id)), rep = (a.blocos || []).filter(b => ids.has(b.id)).map(b => b.id);
+    if(rep.length){ msg2('Esta parte repete ids de blocos que já existem ('+rep.slice(0,3).join(', ')+'). Peça à IA para usar o prefixo p'+k+'b.', true); return; }
+    s.falas.push(...j.falas);
+    s.animacao = mesclar(s.animacao, a);
+    s.partes = Object.assign({total, dur}, s.partes || {}, {total: s.partes && s.partes.total || total, atual: k});
+    if(j.publicacao) s.publicacao = j.publicacao;
+    if(Array.isArray(j.verificar)) s.verificar = (s.verificar || []).concat(j.verificar);
+    if(j.clima && !s.clima) s.clima = j.clima;
+    E.refazer(); RX.sincronizarUI();
+    msg2('Parte '+k+' de '+s.partes.total+' adicionada ('+j.falas.length+' blocos novos).'+(k < s.partes.total ? ' Próxima: parte '+(k+1)+'.' : ' Vídeo completo!'));
+  }
+  ui.resp.value = ''; preencherPartes();
+}
 
 /* =========================================================
-   PROMPT DA IA (formato "explica")
+   PROMPT DA IA (formato "explica"), em uma parte só ou em várias partes
    ========================================================= */
-RX.prompt = function(tema, cat){
-  cat = cat || {};
+const DURACOES = [[30,'30 segundos'],[60,'1 minuto'],[90,'1 min 30 s'],[120,'2 minutos'],[180,'3 minutos']];
+const nPartes = d => Math.max(1, Math.round(d/36));
+function catalogo(){ try{ return E.catalogo ? E.catalogo() : {}; }catch(e){ return {}; } }
+// resumo do que já existe no vídeo, para a IA reaproveitar em vez de recriar
+function estadoResumo(){
+  const s = E.script(), a = s && s.animacao; if(!a) return null;
+  const pecas = {}; Object.keys(a.pecas || {}).forEach(k => { pecas[k] = {partes: (a.pecas[k].partes || []).map(p => p.nome), ancoras: Object.keys(a.pecas[k].ancoras || {})}; });
+  const elementos = (a.elementos || []).map(e => { const o = {id:e.id}; if(e.peca) o.peca = e.peca; if(e.tipo) o.tipo = e.tipo; if(e.pos) o.pos = e.pos; if(e.esc != null) o.esc = e.esc; return o; });
+  const falas = (s.falas || []).map(f => f.texto);
+  return {ambiente: a.ambiente || {}, palco: a.palco || null, pecas, elementos, blocos_existentes: (a.blocos || []).map(b => b.id), total_falas: falas.length, ultimas_falas: falas.slice(-3)};
+}
+RX.prompt = function(tema, cat, op){
+  cat = (cat && cat.ACOES) ? cat : catalogo(); op = op || {};
+  const total = op.total || 1, parte = op.parte || 1, multi = total > 1, ultima = parte === total, dur = op.dur || 36;
   const acoes = Object.keys(cat.ACOES || {}).join(', '), sons = Object.keys(cat.SONS || {}).join(', '), climas = Object.keys(cat.CLIMAS || {}).join(', ');
-  return [
-'Você é o roteirista e diretor de animação do canal "Por Dentro do Óbvio", no formato RAIO-X: vídeos curtos (30 a 45 segundos) em que o Zuco, um alienígena curioso, explica COMO UMA COISA FUNCIONA por dentro, enquanto uma animação 3D low poly mostra o mecanismo atrás dele. O Zuco aparece pequeno no canto da tela, falando.',
-'',
-'O QUE VOCÊ ENTREGA',
-'Um único JSON com: o roteiro falado (campo "falas") e a animação (campo "animacao"). O estúdio toca a animação sincronizada com a voz.',
-'',
-'ROTEIRO (campo "falas")',
+  const pre = multi ? 'p'+parte+'b' : 'b';
+  const L = [];
+  L.push('Você é o roteirista e diretor de animação do canal "Por Dentro do Óbvio", no formato RAIO-X: o Zuco, um alienígena curioso, explica COMO UMA COISA FUNCIONA enquanto uma animação 3D low poly mostra o mecanismo atrás dele. O Zuco aparece pequeno no canto da tela, falando.');
+  if(multi){
+    L.push('', 'O vídeo completo terá cerca de '+Math.round(dur*total)+' segundos e é feito em '+total+' PARTES de uns '+dur+' segundos. Você entrega UMA parte por vez. Esta é a PARTE '+parte+' DE '+total+'.');
+  } else L.push('', 'Este vídeo tem 30 a 45 segundos.');
+  L.push('', 'O PALCO É FIXO (muito importante)',
+'O vídeo inteiro acontece no MESMO CENÁRIO, como nos vídeos de construção que fazem sucesso: o fundo, o chão e o objeto principal ficam sempre no mesmo lugar e a câmera fica ao redor dele. De bloco em bloco mudam só os ELEMENTOS: peças que surgem, se abrem, se mexem, mudam de cor, e partes novas que são acrescentadas ao objeto principal. Nada de trocar de cenário.',
+'Conte em vai e vem, assim: mostre o objeto → "para isso funcionar precisamos de X" → mostre X por dentro → "mas sem Y isso dá errado" (mostre falhando: vibra, fica vermelho, cai, vaza) → entra Y → agora funciona → e assim por diante. Cada problema é resolvido pela peça seguinte, e o objeto principal vai ficando completo.');
+  if(multi && parte > 1){
+    const est = estadoResumo();
+    L.push('', 'O QUE JÁ EXISTE NO VÍDEO (da parte '+(parte-1)+' para trás). REAPROVEITE: use os mesmos ids de elementos e os mesmos nomes de peças, o mesmo estilo e as mesmas cores. NÃO recrie, NÃO mude "ambiente" nem "palco", NÃO repita elementos existentes. Só crie elementos e peças NOVOS, com ids novos.',
+      est ? JSON.stringify(est) : '(cole aqui o estado se o estúdio não tiver preenchido)');
+    if(op.plano) L.push('', 'PLANO DAS PARTES: '+JSON.stringify(op.plano));
+    L.push('A primeira fala desta parte continua a última fala acima, sem recomeçar o assunto nem cumprimentar.');
+  }
+  if(multi && parte === 1) L.push('', 'Nesta primeira parte, monte o cenário e o objeto principal, defina TODAS as peças e elementos que serão base do vídeo (as partes seguintes vão reaproveitá-los) e entregue também o "plano" com o que cada parte cobre, sem repetir conteúdo entre as partes.');
+  L.push('', 'ROTEIRO (campo "falas")',
 '- Só o Zuco fala ("quem":"mascote"). Português do Brasil, coloquial, frases curtas fáceis de falar em voz alta; números por extenso, sem siglas nem símbolos.',
-'- 6 a 9 falas, cada uma com 8 a 16 palavras, e cada fala é UM BLOCO de animação de 3 a 6 segundos. Uma ideia por bloco.',
-'- Bloco 1 é o gancho: uma pergunta ou uma afirmação surpreendente sobre o assunto. O último bloco fecha com a conclusão que responde à pergunta.',
+'- '+(multi ? '7 a 10' : '6 a 9')+' falas, cada uma com 8 a 16 palavras, e cada fala é UM BLOCO de animação de 3 a 6 segundos. Uma ideia por bloco.',
+(parte === 1 ? '- O primeiro bloco é o gancho: uma pergunta ou uma afirmação surpreendente sobre o assunto.' : '- Continue a história de onde parou.')+(ultima ? ' O último bloco fecha com a conclusão que responde à pergunta do vídeo.' : ' Esta parte NÃO conclui o vídeo: termine com um gancho que leva à próxima parte.'),
 '- Tom: explicação de verdade, com humor leve do Zuco, sem aula. Nada que seja falso: se não tiver certeza de um fato, deixe-o de fora.',
 '- Cada fala tem "bloco":"<id do bloco>" e pode ter "acao" (expressão do Zuco; opcional): '+acoes+'.',
 '',
 'ANIMAÇÃO (campo "animacao")',
-'Mundo 3D em metros. Eixo Y é para cima, o chão é y=0, x é para a direita e z vem em direção à câmera. Objetos de 0,3 a 3 metros. A tela é vertical (9:16): o assunto precisa ser alto e estreito, e o canto inferior esquerdo fica coberto pelo Zuco.',
-'Estrutura: {"ambiente":{...},"pecas":{...},"elementos":[...],"blocos":[...]}',
+'Mundo 3D em metros. Eixo Y é para cima, o chão é y=0, x é para a direita e z vem em direção à câmera. A tela é vertical (9:16): o objeto principal deve ser grande, ocupar cerca de metade da altura da tela, e o canto inferior esquerdo fica coberto pelo Zuco.',
+'Estrutura: {'+(parte === 1 ? '"ambiente":{...},"palco":{...},' : '')+'"pecas":{...},"elementos":[...],"blocos":[...]}',
 '',
-'1) PEÇAS: objetos feitos de formas simples, escritos em JSON (nada de código). Ex.: "tanque":{"partes":[{"nome":"casca","forma":"caixa","tam":[1,.7,.34],"cor":"#e9eef2","vidro":.25},{"nome":"agua","forma":"liquido","base":"caixa","tam":[.92,.62,.28],"pos":[0,-.31,0],"nivel":.8},{"nome":"boia","forma":"esfera","raio":.1,"pos":[.3,.15,0],"cor":"#ff9f43"}],"ancoras":{"saida":[0,-.33,0]}}',
+'REGRAS VISUAIS (para a imagem ficar clara)',
+'- Peças SÓLIDAS e coloridas: 5 a 7 cores saturadas no total, evite branco e cinza claro (estouram na tela). Vidro só em 1 ou 2 peças e NUNCA duas camadas de vidro uma atrás da outra.',
+'- Para mostrar camadas ou o interior, AFASTE as peças com "mover" (vista explodida) em vez de empilhar vidros. Cada peça tem uma forma reconhecível (não use só caixas finas).',
+'- Dê a cada elemento importante um rótulo curto quando ele entra em cena.',
+'',
+'1) PEÇAS: objetos feitos de formas simples, escritos em JSON (nada de código). Ex.: "tanque":{"partes":[{"nome":"casca","forma":"caixa","tam":[1,.7,.34],"cor":"#4f9fd6","vidro":.35},{"nome":"agua","forma":"liquido","base":"caixa","tam":[.92,.62,.28],"pos":[0,-.31,0],"nivel":.8},{"nome":"boia","forma":"esfera","raio":.1,"pos":[.3,.15,0],"cor":"#ff9f43"}],"ancoras":{"saida":[0,-.33,0]}}',
 'Formas: caixa (tam [largura,altura,profundidade]), cilindro (raio, alt, raio_topo opcional), esfera (raio), cone (raio, alt), anel (raio, espessura), tubo (pontos [[x,y,z],...], raio), liquido (base "caixa" com tam, ou "cilindro" com raio e alt; "nivel" de 0 a 1; a origem fica no fundo), nuvem (raio).',
-'Campos de cada parte: nome (obrigatório), forma, pos [x,y,z], rot [graus x,y,z], esc, cor "#rrggbb", vidro (transparência de 0,05 a 1, ex. .25), brilho (0 a 1). Use cores suaves e 4 a 6 matizes no total. Cada parte pode ser animada pelo nome "elemento.parte".',
+'Campos de cada parte: nome (obrigatório), forma, pos [x,y,z], rot [graus x,y,z], esc, cor "#rrggbb", vidro (transparência de 0,25 a 1), brilho (0 a 1). Cada parte pode ser animada pelo nome "elemento.parte".',
 '',
-'2) ELEMENTOS: instâncias no mundo. {"id":"tanque","peca":"tanque","pos":[0,1.5,-.5],"rot":[0,0,0],"esc":1,"oculto":false}. Também dá para usar uma forma direto: {"id":"cano","tipo":"tubo","pontos":[...],"raio":.06,"vidro":.35}. Use no máximo 10 elementos e 20 partes. Todo elemento ganha âncoras automáticas: topo, base, centro, esq, dir, frente, fundo (use como "tanque.topo").',
+'2) ELEMENTOS: instâncias no mundo. {"id":"tanque","peca":"tanque","pos":[0,1.5,-.5],"rot":[0,0,0],"esc":1}. Também dá para usar uma forma direto: {"id":"cano","tipo":"tubo","pontos":[...],"raio":.06}. '+(multi ? 'No máximo 10 elementos NOVOS por parte.' : 'No máximo 10 elementos.')+' Todo elemento ganha âncoras automáticas: topo, base, centro, esq, dir, frente, fundo (use como "tanque.topo").'+(parte > 1 ? ' IMPORTANTE: todo elemento novo desta parte precisa entrar com "mostrar" ou "crescer" no bloco certo (senão ele já aparece nas partes anteriores).' : ' Elementos que só entram mais tarde devem ser revelados com "mostrar" ou "crescer" no bloco certo.'),
 '',
-'3) BLOCOS: {"id":"b1","camera":{...},"transicao":{"tipo":"fade"},"acoes":[...]}. Cada bloco tem a câmera e as ações daquele pedaço da fala.',
-'CÂMERA (campo "camera"): orbita em volta de um alvo. {"alvo":"tanque","dist":3,"alt":.4,"azim":20} e, para mover, os mesmos campos com _fim (dist_fim, alt_fim, azim_fim, alvo_fim) ou o atalho "movimento":"aproximar" | "afastar" | "orbitar" | "subir". "alvo" é um elemento, uma âncora ("tanque.boia") ou um ponto [x,y,z]; "azim" é o ângulo em graus ao redor do alvo (0 = de frente). O que faltar herda do bloco anterior. Mude a câmera a cada bloco (close, plano geral, ângulo diferente) e deixe o assunto no meio e na metade de cima da tela. "transicao" é opcional: "corte" (padrão), "fade" ou "flash".',
+'3) BLOCOS: {"id":"'+pre+'1","camera":{...},"transicao":{"tipo":"fade"},"acoes":[...]}. Cada bloco tem a câmera e as ações daquele pedaço da fala. Use ids '+(multi ? 'únicos, começando com "'+pre+'" ('+pre+'1, '+pre+'2, ...)' : 'b1, b2, ...')+'.',
+'CÂMERA: orbita em volta de um alvo. '+(parte === 1 ? 'Defina "palco" (a câmera principal, que mostra o objeto inteiro): {"alvo":"monitor","dist":4.5,"alt":.6,"azim":0}. ' : '')+'Em cada bloco use só VARIAÇÕES PEQUENAS em torno do palco: {"base":true} volta ao palco, {"zoom":1.4} aproxima (2 no máximo), "azim" entre -35 e 35, "alvo" pode ser um elemento ou uma âncora ("tanque.boia") para olhar uma peça, e para mover use os mesmos campos com _fim (zoom_fim, azim_fim, alvo_fim) ou "movimento":"aproximar" | "afastar" | "orbitar" | "subir". Faça no máximo 2 close-ups fortes por parte e volte ao palco depois. O que faltar herda do bloco anterior. "transicao" é opcional: "corte" (padrão), "fade" ou "flash".',
 '',
 'AÇÕES (cada uma: "em" = quando começa, "dur" = duração em segundos, "alvo" = elemento ou "elemento.parte", "faz" = o verbo)',
 '- "em": segundos depois do começo da fala (ex. 0.5), ou {"palavra":4} para começar exatamente quando a quinta palavra da fala é dita (a primeira é a 0), ou {"palavra":"despenca"} pela própria palavra. Use isso para sincronizar com o que o Zuco diz.',
-'- mostrar / esconder: aparece ou some (elementos com "mostrar" começam escondidos).',
+'- mostrar / esconder: aparece ou some. crescer: o elemento brota do chão (ou da base) com a base parada, bom para construir (só em elementos que não se mexeram antes).',
 '- mover: {"faz":"mover","alvo":"x","delta":[0,-.4,0]} (relativo) ou "para":[x,y,z] (absoluto).',
 '- girar: {"faz":"girar","alvo":"x","eixo":"z","graus":40}; girar_continuo: {"faz":"girar_continuo","alvo":"x","eixo":"y","vel":180,"dur":3}.',
-'- escalar: {"para":1.5}; cor: {"para":"#ff0000"}; nivel (só para "liquido"): {"alvo":"tanque.agua","para":.1,"dur":2.5}.',
-'- destacar: pulsa e brilha (use para chamar atenção); vibrar: treme.',
+'- escalar: {"para":1.5}; cor: {"para":"#ff0000"} (ótimo para mostrar erro ou aquecimento); nivel (só para "liquido"): {"alvo":"tanque.agua","para":.1,"dur":2.5}.',
+'- destacar: pulsa e brilha (chama atenção); vibrar: treme (use para mostrar que algo está errado).',
 '- fluxo: partículas que correm de um ponto a outro (água, ar, gás, energia): {"faz":"fluxo","de":"tanque.saida","via":[[0,.9,-.5]],"para":[0,.7,0],"dur":2.5,"cor":"#6cc0ff","qtd":22,"tam":.05}. "de", "via" e "para" aceitam elemento, âncora ou [x,y,z].',
-'- rotulo: etiqueta com texto curto em MAIÚSCULAS (até 3 palavras): {"faz":"rotulo","alvo":"tanque.boia","texto":"BOIA","estilo":"pilula","desloc":[.12,.06]}. "desloc" é [direita, cima] em fração da altura da tela (0,1 = um décimo da tela); o tamanho do rótulo já é fixo em tela, não precisa de "tam". Estilos: pilula, titulo (grande, amarelo). Dura até o fim do bloco, a menos que tenha "dur".',
+'- rotulo: etiqueta com texto curto em MAIÚSCULAS (até 3 palavras): {"faz":"rotulo","alvo":"tanque.boia","texto":"BOIA","estilo":"pilula","desloc":[.12,.06]}. "desloc" é [direita, cima] em fração da altura da tela; o tamanho já é fixo em tela. Estilos: pilula, titulo (grande, amarelo). Dura até o fim do bloco, a menos que tenha "dur".',
 '- seta: {"faz":"seta","alvo":"tanque.valvula","dir":[0,-1,0]} (a seta aponta nessa direção).',
 '- temperatura: contador animado: {"faz":"temperatura","alvo":"geladeira.topo","de":20,"para":4,"dur":2}.',
 'Cada bloco precisa de pelo menos 2 ações. Faça acontecer o que a fala diz, no momento em que ela diz. Estados persistem: o que mudou num bloco continua mudado nos próximos.',
 '',
 'MÚSICA E SONS (opcionais): "clima" ('+climas+'); falas podem ter "som" ('+sons+') no máximo em 2 ou 3 delas.',
-'',
-'FORMATO DE SAÍDA',
-'Responda SOMENTE com JSON válido, sem texto antes ou depois e sem bloco de código:',
-'{"formato":"explica","titulo":"pergunta do vídeo","clima":"animada","falas":[{"quem":"mascote","texto":"...","bloco":"b1","acao":"espanto"}],"animacao":{"ambiente":{},"pecas":{},"elementos":[],"blocos":[{"id":"b1","camera":{},"acoes":[]}]},"publicacao":{"youtube_titulo":"...","youtube_descricao":"...","tiktok":"...","instagram":"...","hashtags":["..."]},"verificar":["fato 1 que deve ser conferido","fato 2"]}',
-'- publicacao: título do YouTube até 70 caracteres com emoji, terminando com #shorts; descrição com 2 ou 3 frases e, na última linha, exatamente: "Animação e vozes feitas com ajuda de inteligência artificial."; hashtags de 4 a 6 em minúsculas, incluindo pordentrodoobvio.',
-'- verificar: cada afirmação factual do roteiro que uma pessoa deve conferir antes de publicar (no máximo 6).',
-'',
-'TEMA: '+(tema && tema.trim() ? tema.trim() : '[escreva o tema aqui]')
-  ].join('\n');
+'', 'FORMATO DE SAÍDA', 'Responda SOMENTE com JSON válido, sem texto antes ou depois e sem bloco de código:');
+  if(parte === 1){
+    L.push('{"formato":"explica","parte":1,"total":'+total+','+(multi ? '"plano":[{"parte":1,"titulo":"...","resumo":"..."},...],' : '')+'"titulo":"pergunta do vídeo","clima":"animada","falas":[{"quem":"mascote","texto":"...","bloco":"'+pre+'1","acao":"espanto"}],"animacao":{"ambiente":{},"palco":{},"pecas":{},"elementos":[],"blocos":[{"id":"'+pre+'1","camera":{},"acoes":[]}]}'+(ultima ? ',"publicacao":{"youtube_titulo":"...","youtube_descricao":"...","tiktok":"...","instagram":"...","hashtags":["..."]},"verificar":["fato 1"]' : ',"verificar":["fato 1"]')+'}');
+  } else {
+    L.push('{"parte":'+parte+',"total":'+total+',"falas":[{"quem":"mascote","texto":"...","bloco":"'+pre+'1"}],"animacao":{"pecas":{"so as novas":{}},"elementos":[{"so os novos":1}],"blocos":[{"id":"'+pre+'1","camera":{"base":true},"acoes":[]}]}'+(ultima ? ',"publicacao":{"youtube_titulo":"...","youtube_descricao":"...","tiktok":"...","instagram":"...","hashtags":["..."]},"verificar":["fato 1"]' : ',"verificar":["fato 1"]')+'}');
+  }
+  if(ultima) L.push('- publicacao (do vídeo COMPLETO): título do YouTube até 70 caracteres com emoji, terminando com #shorts; descrição com 2 ou 3 frases e, na última linha, exatamente: "Animação e vozes feitas com ajuda de inteligência artificial."; hashtags de 4 a 6 em minúsculas, incluindo pordentrodoobvio.');
+  L.push('- verificar: cada afirmação factual desta parte que uma pessoa deve conferir antes de publicar (no máximo 6).', '', 'TEMA: '+(tema && tema.trim() ? tema.trim() : '[escreva o tema aqui]'));
+  return L.join('\n');
 };
 
 /* ---------- inicialização ---------- */

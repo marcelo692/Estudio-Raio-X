@@ -402,6 +402,7 @@ input[type=password]{font:13px var(--mono);background:#121318;color:var(--fg);bo
 <script src="lib/OrbitControls.js"></script>
 <script src="lib/mp4-muxer.js"></script>
 <script src="modulos/exemplo-descarga.js"></script>
+<script src="modulos/exemplo-predio.js"></script>
 <script src="modulos/raiox.js"></script>
 <script>
 (function(){
@@ -3809,6 +3810,7 @@ Raiox.init({THREE, scene, cam, R, SKY, hemi, sun, rim, SCENES, addScene, zuco, g
   tocar: rxTocar,
   gravar: async (de, ate, sufixo) => { const o = {de, ate, sufixo}; await exportVideo(o); return !!o.ok; },
   emExportacao: () => exporting,
+  catalogo: () => ({ACOES, SONS, CLIMAS}),
   carregar: async o => { await applyScript(o); $('editor').value = JSON.stringify(script, null, 2); }});
 window.__T = {poseAt, renderView, applyScript, frame, exportVideo, set playhead(v){ playhead = v; }, get timeline(){ return timeline; }, get total(){ return total; }, get script(){ return script; }};
 setScene('lago');
