@@ -116,7 +116,7 @@ function tex(nome, cor, m){
 // opcoes: {tex:'madeira', m:1, vidro:.4, brilho:.5, rough:.85, metal:0}
 function mat(cor, o){
   o = o || {};
-  const m = new T3.MeshStandardMaterial({color: o.tex ? '#ffffff' : cor, flatShading:true, roughness: o.rough != null ? o.rough : .85, metalness: o.metal || 0});
+  const m = new T3.MeshStandardMaterial({color: o.tex ? '#ffffff' : cor, flatShading:true, roughness: o.rough != null ? o.rough : .85, metalness: Math.min(.22, (o.metal || 0)*.4)});
   if(o.tex) m.map = tex(o.tex, cor, o.m || 1);
   if(o.vidro){ m.transparent = true; m.opacity = clamp(o.vidro, .15, 1); m.depthWrite = false; m.roughness = .2; }
   if(o.brilho){ m.emissive = new T3.Color(cor); m.emissiveIntensity = o.brilho; if(o.tex){ m.emissiveMap = m.map; } }
@@ -156,8 +156,8 @@ function cone(r, h, matl, opt){ opt = opt || {}; return por(sombra(new T3.Mesh(n
 function esfera(r, matl, opt){ opt = opt || {}; return por(sombra(new T3.Mesh(new T3.IcosahedronGeometry(r, opt.det != null ? opt.det : 1), matl)), opt); }
 function grupo(opt){ return por(new T3.Group(), opt); }
 // pose de repouso: toda animação parte dela
-function repouso(o){ if(!o.userData.rest) o.userData.rest = {p:o.position.clone(), r:o.rotation.clone(), s:o.scale.clone()}; return o.userData.rest; }
-function volta(o){ const r = repouso(o); o.position.copy(r.p); o.rotation.copy(r.r); o.scale.copy(r.s); return r; }
+function repouso(o){ if(!o.userData.rest) o.userData.rest = {p:o.position.clone(), r:o.rotation.clone(), s:o.scale.clone(), v:o.visible}; return o.userData.rest; }
+function volta(o){ const r = repouso(o); o.position.copy(r.p); o.rotation.copy(r.r); o.scale.copy(r.s); o.visible = r.v; return r; }
 const suave = t => { t = clamp(t, 0, 1); return t*t*(3 - 2*t); };
 const saida = t => { t = clamp(t, 0, 1); return 1 - (1-t)*(1-t); };
 const prog = (t, a, b) => clamp((t - a)/Math.max(1e-6, b - a), 0, 1);
@@ -165,6 +165,15 @@ const prog = (t, a, b) => clamp((t - a)/Math.max(1e-6, b - a), 0, 1);
 const H = {T3, rad, clamp, rng, tex, mat, caixa, cil, cone, esfera, grupo, por, nomear, repouso, volta, suave, saida, prog, tom};
 LIB.H = H;
 
+
+LIB.U = {
+  RP: o => o.userData.rest,
+  gx: (o, a) => { o.rotation.x = o.userData.rest.r.x + a; }, gy: (o, a) => { o.rotation.y = o.userData.rest.r.y + a; }, gz: (o, a) => { o.rotation.z = o.userData.rest.r.z + a; },
+  tinge: (o, hex, k) => o.traverse(m => { if(m.isMesh){ if(!m.material.userData.cor0) m.material.userData.cor0 = m.material.color.clone(); m.material.color.copy(m.material.userData.cor0).lerp(new T3.Color(hex), k); } }),
+  brilha: (o, hex, k) => o.traverse(m => { if(m.isMesh && m.material.emissive){ m.material.emissive.set(hex); m.material.emissiveIntensity = k; } }),
+  treme: (o, t, amp) => { const r = o.userData.rest; o.position.x = r.p.x + Math.sin(t*61)*amp; o.position.y = r.p.y + Math.sin(t*53 + 1)*amp*.6; },
+  pos: (o, x, y, z) => { const r = o.userData.rest.p; o.position.set(r.x + (x||0), r.y + (y||0), r.z + (z||0)); }
+};
 LIB.registrar = function(def){
   if(!def || !def.id || typeof def.criar !== 'function') throw new Error('objeto da biblioteca sem id ou criar');
   def.defaults = () => { const o = {}; Object.keys(def.params || {}).forEach(k => { o[k] = def.params[k].padrao; }); return o; };
@@ -177,13 +186,13 @@ LIB.construir = function(id, params){
   const def = LIB.itens[id]; if(!def) return null;
   const P = Object.assign(def.defaults(), params || {});
   const r = def.criar(P, H), partes = {};
-  r.obj.traverse(o => { if(o.userData.parte){ partes[o.userData.parte] = o; repouso(o); } });
+  r.obj.traverse(o => { repouso(o); if(o.userData.parte) partes[o.userData.parte] = o; });
   return {def, obj: r.obj, ancoras: r.ancoras || {}, dim: r.dim || def.dim || [1,1,1], partes, params: P};
 };
 // volta todas as partes à pose de repouso e às cores originais (o motor chama isso antes de aplicar as animações do quadro)
 LIB.reset = function(partes){
-  Object.keys(partes).forEach(k => { const o = partes[k]; volta(o); o.traverse(m => {
-    if(!m.isMesh) return; const mt = m.material;
+  Object.keys(partes).forEach(k => { const o = partes[k]; o.traverse(m => {
+    volta(m); if(!m.isMesh) return; const mt = m.material;
     if(mt.userData.cor0) mt.color.copy(mt.userData.cor0);
     const e = mt.userData.e; if(e && mt.emissive){ mt.emissive.copy(e.c); mt.emissiveIntensity = e.i; }
   }); });

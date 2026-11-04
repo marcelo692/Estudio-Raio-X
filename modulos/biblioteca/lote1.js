@@ -129,7 +129,7 @@ LIB.registrar({id:'palmeira', nome:'Palmeira', lote:1, categoria:'natureza',
   criar(P){
     const g = grupo(), c = grupo({pai:g, nome:'corpo'}), H = P.altura, n = 7, mt = mat('#8a6a42', {tex:'madeira', m:.4}), mf = mat(P.cor_folha, {rough:.8});
     const tr = grupo({pai:c, nome:'tronco'}); let x = 0, y = 0; const seg = H*.82/n;
-    for(let i = 0; i < n; i++){ const dx = .045*(i + 1), a = Math.atan2(dx, seg); cil(.15 - i*.011, seg*1.08, mt, {pai:tr, pos:[x + dx/2, y + seg/2, 0], rot:[0, 0, -a*57.2958], rTopo:.14 - i*.011, lados:8}); x += dx; y += seg; }
+    for(let i = 0; i < n; i++){ const dx = .045*(i + 1), a = Math.atan2(dx, seg); cil(.15 - i*.011, Math.hypot(dx, seg)*1.22, mt, {pai:tr, pos:[x + dx/2, y + seg/2, 0], rot:[0, 0, -a*57.2958], rTopo:.14 - i*.011, lados:8}); x += dx; y += seg; }
     const fo = grupo({pai:c, nome:'folhas', pos:[x, y, 0]});
     for(let i = 0; i < 8; i++){ const f = grupo({pai:fo, rot:[0, i*45, 0]}), b = grupo({pai:f, rot:[-18, 0, 0]}); caixa(.22, .035, 1.0, mf, {pai:b, pos:[0, 0, .5]}); const b2 = grupo({pai:b, pos:[0, 0, 1.0], rot:[28, 0, 0]}); caixa(.16, .03, .8, mf, {pai:b2, pos:[0, 0, .4]}); repouso(f); }
     [[.12, -.06, .1],[-.1, -.08, .06],[.02, -.1, -.12]].forEach(([a, b2, d]) => esfera(.09, mat('#6b4a1f'), {pai:fo, pos:[a, b2, d], det:0}));

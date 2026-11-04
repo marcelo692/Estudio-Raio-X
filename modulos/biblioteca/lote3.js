@@ -168,15 +168,18 @@ LIB.registrar({id:'relogio', nome:'Relógio de parede', lote:3, categoria:'casa'
 
 /* ---------- 30. chave_inglesa ---------- */
 LIB.registrar({id:'chave_inglesa', nome:'Chave inglesa', lote:3, categoria:'ferramentas',
-  descricao:'chave inglesa deitada no chão (cabo ao longo de x); gira como se apertasse e abre/fecha a boca',
-  params:{cor:{padrao:'#a9b3bf'}, tamanho:{padrao:1}},
-  animacoes:{apertar:{desc:'gira em arco como se apertasse um parafuso', dur:1.4, aplicar(p, t){ gz(p.corpo, rad(-40)*Math.sin(Math.PI*clamp(t/1.4, 0, 1))); }},
-             abrir_boca:{desc:'a boca se abre e fecha', dur:1.2, aplicar(p, t){ p.mandibula.position.x = RP(p.mandibula).p.x + .09*Math.sin(Math.PI*clamp(t/1.2, 0, 1)); }}},
+  descricao:'chave inglesa de aço deitada no chão (cabo para -x, boca para +x); gira em arco como se apertasse e abre/fecha a boca',
+  params:{cor:{padrao:'#aab4c0'}, tamanho:{padrao:1}},
+  animacoes:{apertar:{desc:'gira em arco como se apertasse um parafuso', dur:1.4, aplicar(p, t){ p.corpo.rotation.y = RP(p.corpo).r.y + rad(35)*Math.sin(Math.PI*clamp(t/1.4, 0, 1)); }},
+             abrir_boca:{desc:'a boca se abre e fecha (ajuste)', dur:1.2, aplicar(p, t){ p.mandibula.position.z = RP(p.mandibula).p.z + .11*Math.sin(Math.PI*clamp(t/1.2, 0, 1)); p.parafuso.rotation.x = RP(p.parafuso).r.x + 6*Math.sin(Math.PI*clamp(t/1.2, 0, 1)); }}},
   criar(P){
-    const g = grupo(), s = P.tamanho, c = grupo({pai:g, nome:'corpo', esc:s}), mm = mat(P.cor, {tex:'metal', m:.4, metal:.7, rough:.35});
-    caixa(1.2, .05, .13, mm, {pai:c, pos:[0, .04, 0]}); caixa(.3, .05, .22, mm, {pai:c, pos:[.66, .04, 0]});
-    caixa(.26, .05, .08, mm, {pai:c, nome:'mandibula_fixa', pos:[.82, .04, .13]}); caixa(.26, .05, .08, mm, {pai:c, nome:'mandibula', pos:[.82, .04, -.13 + .0]});
-    cil(.06, .06, mat('#6b7580', {tex:'metal'}), {pai:c, pos:[.55, .08, -.04], lados:10}); caixa(.5, .052, .135, mat('#c9532f', {rough:.6}), {pai:c, pos:[-.35, .042, 0]});
-    return {obj:g, dim:[1.45*s, .12*s, .4*s], ancoras:{boca:[.9*s, .04, 0], cabo:[-.5*s, .04, 0]}};
+    const g = grupo(), s = P.tamanho, c = grupo({pai:g, nome:'corpo', esc:s}), mm = mat(P.cor, {tex:'metal', m:.4, metal:.75, rough:.3}), mc = mat('#c9532f', {rough:.6});
+    const y = .06;
+    caixa(1.0, .1, .17, mm, {pai:c, nome:'cabo', pos:[-.1, y, 0]}); caixa(.5, .1, .2, mc, {pai:c, pos:[-.5, y, 0]}); caixa(.12, .1, .24, mm, {pai:c, pos:[-.98, y, 0]});
+    caixa(.46, .1, .5, mm, {pai:c, nome:'cabeca', pos:[.6, y, 0]});
+    caixa(.46, .12, .17, mm, {pai:c, nome:'mandibula_fixa', pos:[.74, y, .17]});
+    caixa(.46, .12, .17, mm, {pai:c, nome:'mandibula', pos:[.74, y, -.17]});
+    cil(.07, .14, mat('#6b7580', {tex:'metal', m:.3, metal:.6}), {pai:c, nome:'parafuso', pos:[.47, y + .02, -.03], lados:10});
+    return {obj:g, dim:[1.7*s, .22*s, .6*s], ancoras:{boca:[.85*s, y, 0], cabo:[-.8*s, y, 0]}};
   }});
 })();

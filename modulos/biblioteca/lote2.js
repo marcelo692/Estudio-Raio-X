@@ -107,13 +107,14 @@ LIB.registrar({id:'tubo_curvo', nome:'Tubo em L com fluxo', lote:2, categoria:'f
   descricao:'cano em L (horizontal e depois sobe) com gotas de fluido que correm dentro; serve para mostrar caminho de água, gás ou fio',
   params:{comprimento:{padrao:1.6}, cor:{padrao:'#8d98a6'}, cor_fluido:{padrao:'#3fa7ff'}},
   animacoes:{fluir:{desc:'o fluido corre pelo cano (contínuo); args.velocidade', loop:true, dur:3, aplicar(p, t, a){ const v = a.velocidade != null ? a.velocidade : 1, L = p.fluido.userData.L, n = p.fluido.children.length; p.fluido.children.forEach((d, i) => { const u = (((i/n) + t*.25*v) % 1)*2*L, r = p.fluido.userData.r; if(u < L) d.position.set(-L/2 + u, r, 0); else d.position.set(L/2, r + (u - L), 0); }); }},
-             vazar:{desc:'o cano racha na curva e o fluido jorra', dur:2, aplicar(p, t){ const k = suave(t/.6); p.fluido.children.forEach((d, i) => { d.position.z += k*Math.sin(i*1.7)*.12; }); tinge(p.cano, '#6b4a2c', k*.4); }}},
+             vazar:{desc:'o cano racha na curva e o fluido jorra em gotas para fora (contínuo)', loop:true, dur:2, aplicar(p, t){ tinge(p.cano, '#8a5a2b', .25); p.jato.children.forEach((d, i) => { const u = ((t*1.3 + i/10) % 1), vx = .5 + (i%3)*.25, vz = .9 + (i%4)*.35; d.scale.setScalar(1); d.position.set(u*vx*.6, .1 + u*.9 - 2.2*u*u, u*vz*.5); }); }}},
   criar(P){
-    const g = grupo(), L = P.comprimento, r = .13, mc = mat(P.cor, {tex:'metal', m:.5, metal:.5, rough:.5}), cano = grupo({pai:g, nome:'cano'});
+    const g = grupo(), L = P.comprimento, r = .13, mc = mat(P.cor, {vidro:.42, rough:.2}), cano = grupo({pai:g, nome:'cano'});
     cil(r, L, mc, {pai:cano, pos:[0, r, 0], rot:[0, 0, 90], lados:12}); cil(r, L, mc, {pai:cano, pos:[L/2, r + L/2, 0], lados:12}); esfera(r*1.25, mc, {pai:cano, pos:[L/2, r, 0], det:1});
     [-L/2, L/2].forEach((x, i) => cil(r*1.3, .07, mc, {pai:cano, pos:i ? [L/2, r + L, 0] : [x, r, 0], rot:i ? [0, 0, 0] : [0, 0, 90], lados:12}));
     const fl = grupo({pai:g, nome:'fluido'}); fl.userData.L = L; fl.userData.r = r; const mf = mat(P.cor_fluido, {brilho:.5, rough:.3});
-    for(let i = 0; i < 8; i++) esfera(r*.55, mf, {pai:fl, pos:[-L/2 + i/8*L, r, 0], det:1});
+    for(let i = 0; i < 8; i++) esfera(r*.7, mf, {pai:fl, pos:[-L/2 + i/8*L, r, 0], det:1});
+    const jt = grupo({pai:g, nome:'jato', pos:[L/2, r, 0]}); jt.userData.n = 10; for(let i = 0; i < 10; i++) esfera(.05, mf, {pai:jt, pos:[0, 0, 0], det:0, esc:.001});
     return {obj:g, dim:[L + .3, L + .3, .4], ancoras:{inicio:[-L/2, r, 0], curva:[L/2, r, 0], fim:[L/2, r + L, 0]}};
   }});
 
@@ -174,7 +175,7 @@ LIB.registrar({id:'polia', nome:'Polia com peso', lote:2, categoria:'mecânica',
   }});
 function puxa(p, d){
   const pl = p.roda.parent.userData.pol, rp = RP(p.corda_peso), rm = RP(p.corda_mao);
-  gz(p.roda, d/pl.r);
+  gz(p.roda, -d/pl.r);
   p.peso.position.y = RP(p.peso).p.y + d;
   p.corda_peso.scale.y = (pl.Ls - d)/pl.Ls; p.corda_peso.position.y = pl.cy - (pl.Ls - d)/2;
   p.corda_mao.scale.y = (pl.Lr + d)/pl.Lr; p.corda_mao.position.y = pl.cy - (pl.Lr + d)/2;
