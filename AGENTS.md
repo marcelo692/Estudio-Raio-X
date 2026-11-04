@@ -280,3 +280,6 @@ Adicione `["nome-da-voz-edge", "Rótulo"]` em `NEURAL_VOICES`. A lista de vozes 
 ## Biblioteca: pedidos por objeto e novos objetos
 - Contrato e checklist em `modulos/biblioteca/GUIA.md`; histórico em `CHANGELOG.md`; objetos novos em `modulos/biblioteca/meus_objetos.js` (lote "meus", carregado por index.html e biblioteca.html).
 - `biblioteca.html`: por objeto, caixa "Pedir mudança" gera `pedido-<id>.md` (com partes, params, animações e arquivo do objeto) para Codex/Claude Code; "➕ Novo objeto" gera `pedido-novo-<id>.md`; "🔍 Verificar tudo" constrói tudo e roda todas as animações (erro/NaN). Nomes de partes e animações são API pública: só acrescentar.
+
+## Teste de exportação
+`node testes/exportacao.js 8 14` (estúdio rodando, playwright + ffprobe): exporta um trecho do exemplo com voz sintética e confere resolução, 30 fps, nº de quadros, trilha de áudio e a sincronia dos silêncios entre cenas. Último resultado: quadros exatos, áudio sincronizado em ~10 ms. Chromium de teste só tem Opus (sem AAC); no Chrome/Edge do Windows o estúdio escolhe AAC.
