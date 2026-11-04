@@ -75,3 +75,6 @@ Abra "🧱 Biblioteca" no topo do estúdio (ou `http://localhost:8766/biblioteca
 - Caixa "pedir ajuste só desta cena": escreva o que mudar, baixe o pedido (.txt), anexe na IA e solte aqui o arquivo `raiox-ajuste-<cena>.json` que ela devolver. Só aquela cena é trocada. "Desfazer ajuste" volta ao anterior.
 - Formato do ajuste: `{"ajuste":true,"bloco":"b4","fala":{...opcional},"animacao":{"elementos":[...],"blocos":[{"id":"b4",...}]}}`. Também pode ser solto na área de arquivos de cima.
 - Biblioteca: todos os 9 lotes foram considerados aprovados; correções entram conforme você for achando.
+
+## Biblioteca: pedir ajuste e criar objetos
+Na biblioteca, escreva em "Pedir mudança neste objeto" o que quer (ajuste ou animação nova) e baixe o pedido; entregue ao Codex/Claude Code aberto na pasta do estúdio, recarregue a página e confira. Para um objeto que não existe: "➕ Novo objeto". "🔍 Verificar tudo" acusa erros. Detalhes em modulos/biblioteca/GUIA.md.

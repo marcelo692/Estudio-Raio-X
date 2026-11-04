@@ -276,3 +276,7 @@ Adicione `["nome-da-voz-edge", "Rótulo"]` em `NEURAL_VOICES`. A lista de vozes 
 ## Linha do tempo e ajuste por cena (raiox.js)
 - `montarTimeline` (faixa #rxTlWrap), `RX.syncTl(playhead)` chamado por syncUI/markSel; ctx extra: `sel`, `playhead`, `ir(t)`, `tocar(a,b,loop)`.
 - Ajuste: `promptAjuste(l,pedido)` gera o pedido; `aplicarAjuste(j)` substitui a fala por `bloco` e mescla por id (com pilha de desfazer). Aceito em `lerArquivos` e `adicionarParte` quando `j.ajuste`.
+
+## Biblioteca: pedidos por objeto e novos objetos
+- Contrato e checklist em `modulos/biblioteca/GUIA.md`; histórico em `CHANGELOG.md`; objetos novos em `modulos/biblioteca/meus_objetos.js` (lote "meus", carregado por index.html e biblioteca.html).
+- `biblioteca.html`: por objeto, caixa "Pedir mudança" gera `pedido-<id>.md` (com partes, params, animações e arquivo do objeto) para Codex/Claude Code; "➕ Novo objeto" gera `pedido-novo-<id>.md`; "🔍 Verificar tudo" constrói tudo e roda todas as animações (erro/NaN). Nomes de partes e animações são API pública: só acrescentar.

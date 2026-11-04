@@ -31,13 +31,13 @@ textarea{width:100%;min-height:110px;resize:vertical}
 h3{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px}
 @media(max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 220px 60vh auto}#lista,#lado{border:0}header{grid-column:1}}
 </style></head><body>
-<header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><button id="bBaixar" title="Baixa um arquivo com suas anotações">Baixar anotações</button><a href="index.html">← voltar ao estúdio</a></header>
+<header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><button id="bNovo" title="Gera o pedido para a IA (Codex ou Claude Code) criar um objeto que não existe">➕ Novo objeto</button><button id="bVerif" title="Constrói todos os objetos e roda todas as animações procurando erro">🔍 Verificar tudo</button><button id="bBaixar" title="Baixa um arquivo com suas anotações">Baixar anotações</button><a href="index.html">← voltar ao estúdio</a></header>
 <aside id="lista"></aside>
 <main id="centro"><canvas id="cv"></canvas><div id="hud"></div>
   <div id="barra"><button id="bGirar" class="on">Girar</button><button id="bRegua">Régua 1 m</button><button id="bPanorama">Ver todos lado a lado</button><button id="bRepouso">Repouso</button><span id="anims" style="display:contents"></span></div></main>
 <aside id="lado"><div id="info"></div></aside>
 <script src="lib/three.min.js"></script><script src="lib/OrbitControls.js"></script>
-<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script><script src="modulos/biblioteca/lote2.js"></script><script src="modulos/biblioteca/lote3.js"></script><script src="modulos/biblioteca/lote4.js"></script><script src="modulos/biblioteca/lote5.js"></script><script src="modulos/biblioteca/lote6.js"></script><script src="modulos/biblioteca/lote7.js"></script><script src="modulos/biblioteca/lote8.js"></script><script src="modulos/biblioteca/lote9.js"></script>
+<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script><script src="modulos/biblioteca/lote2.js"></script><script src="modulos/biblioteca/lote3.js"></script><script src="modulos/biblioteca/lote4.js"></script><script src="modulos/biblioteca/lote5.js"></script><script src="modulos/biblioteca/lote6.js"></script><script src="modulos/biblioteca/lote7.js"></script><script src="modulos/biblioteca/lote8.js"></script><script src="modulos/biblioteca/lote9.js"></script><script src="modulos/biblioteca/meus_objetos.js"></script>
 <script>
 const LIB = window.RAIOX_LIB, T = THREE, $ = id => document.getElementById(id);
 const estado = {sel:null, params:{}, cena:null, anim:null, relogio:0, giro:true, regua:false, pano:false, val:{}};
@@ -113,7 +113,7 @@ function resumo(){ const v = Object.values(estado.val), n = k => v.filter(x => x
 function lista(){
   const el = $('lista'); el.innerHTML = ''; let lote = null;
   LIB.ordem.forEach(id => {
-    const d = LIB.itens[id]; if(d.lote !== lote){ lote = d.lote; const h = document.createElement('div'); h.className = 'lote'; h.textContent = 'Lote '+lote; el.appendChild(h); }
+    const d = LIB.itens[id]; if(d.lote !== lote){ lote = d.lote; const h = document.createElement('div'); h.className = 'lote'; h.textContent = typeof lote === 'number' ? 'Lote '+lote : 'Meus objetos'; el.appendChild(h); }
     const v = estado.val[id], it = document.createElement('div'); it.className = 'item'+(estado.sel === id ? ' sel' : ''); it.dataset.id = id;
     it.innerHTML = '<img alt=""><div><b></b><small></small></div><span class="tag"></span>';
     it.querySelector('img').src = thumbs[id] || ''; it.querySelector('b').textContent = d.nome; it.querySelector('small').textContent = d.categoria;
@@ -138,15 +138,75 @@ function painel(){
     row.appendChild(inp); ps.appendChild(row);
   });
   $('pa').textContent = 'Partes: '+Object.keys(atual.partes).join(', ')+'. Animações: '+Object.keys(d.animacoes).join(', ')+'.';
+  el.insertAdjacentHTML('beforeend', '<h3>Pedir mudança neste objeto</h3><p>Descreva o ajuste ou a animação nova. Baixe o pedido e entregue ao Codex ou ao Claude Code (aberto na pasta do estúdio); ele altera o arquivo e você recarrega esta página.</p>'
+    + '<textarea id="pd" placeholder="Ex.: a porta precisa abrir de verdade; nova animação \'tremer\' quando o vento passa; trocar o telhado por telha de barro; deixar a janela maior…"></textarea>'
+    + '<div class="row"><button id="pdB">Baixar pedido (.md)</button><button id="pdC">Copiar pedido</button></div><span class="mu" id="pdM"></span>');
+  $('pd').value = v.pedido || ''; $('pd').oninput = () => { const r = estado.val[estado.sel] || {id: estado.sel, estado: 'aj'}; r.pedido = $('pd').value; r.id = estado.sel; estado.val[estado.sel] = r; try{ localStorage.setItem('rx-bib-val', JSON.stringify(estado.val)); }catch(e){} };
+  $('pdB').onclick = () => { const t = promptObjeto(estado.sel, $('pd').value); baixar('pedido-'+estado.sel+'.md', t); salvar(v.estado || 'aj', true); $('pdM').textContent = 'Pedido baixado: entregue ao Codex/Claude Code. Quando ele terminar, recarregue (F5).'; };
+  $('pdC').onclick = () => { const t = promptObjeto(estado.sel, $('pd').value); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('pdM').textContent = 'Pedido copiado. Cole no Codex/Claude Code.'; }, () => { baixar('pedido-'+estado.sel+'.md', t); $('pdM').textContent = 'Não consegui copiar; baixei o arquivo.'; }); };
   el.querySelectorAll('.bt').forEach((b, i) => { const k = ['ok','aj','rj'][i]; if(v.estado === k) b.classList.add('on'); b.onclick = () => salvar(k); });
   $('sv').onclick = () => salvar(v.estado || 'aj', true);
 }
 function salvar(est, soComentario){
-  const id = estado.sel, antigo = estado.val[id] || {}, reg = {id, estado: soComentario && !antigo.estado ? 'aj' : est, comentario: $('co').value.trim(), params: estado.params, quando: new Date().toISOString()};
+  const id = estado.sel, antigo = estado.val[id] || {}, reg = {id, estado: soComentario && !antigo.estado ? 'aj' : est, comentario: $('co').value.trim(), pedido: ($('pd') ? $('pd').value : antigo.pedido) || '', params: estado.params, quando: new Date().toISOString()};
   estado.val[id] = reg; try{ localStorage.setItem('rx-bib-val', JSON.stringify(estado.val)); }catch(e){}
   fetch('/api/biblioteca/validacao', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(reg)})
     .then(r => r.ok ? 'Salvo.' : 'Salvo só neste navegador (o servidor não respondeu).').catch(() => 'Salvo só neste navegador (abra pelo "Abrir estudio.bat").').then(t => { const m = $('msg'); if(m) m.textContent = t; });
   lista(); painel();
+}
+/* ---------- pedidos para a IA de código ---------- */
+function baixar(nome, txt){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], {type:'text/markdown;charset=utf-8'})); a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+function arquivoDoLote(d){ return typeof d.lote === 'number' ? 'modulos/biblioteca/lote'+d.lote+'.js' : 'modulos/biblioteca/meus_objetos.js'; }
+const CABECALHO = ['Você vai mexer na BIBLIOTECA DE OBJETOS 3D do Estúdio Raio-X (projeto nesta pasta). ANTES de qualquer alteração leia `AGENTS.md` e `modulos/biblioteca/GUIA.md` e siga o padrão à risca.',
+  'Regras de ouro: nomes de partes e de animações já existentes são API pública (os roteiros JSON usam), então só acrescente, nunca renomeie nem apague. Animações são funções puras de t. Tudo procedural, low poly, sem dependências.'];
+function promptObjeto(id, pedido){
+  const d = LIB.itens[id], r = LIB.construir(id), v = estado.val[id] || {};
+  const ps = Object.keys(d.params || {}).map(k => '  - '+k+' = '+JSON.stringify(d.params[k].padrao)+(d.params[k].opcoes ? ' (opções: '+d.params[k].opcoes.join(', ')+')' : '')).join('\n') || '  (nenhum)';
+  const an = Object.keys(d.animacoes).map(n => '  - '+n+(d.animacoes[n].loop ? ' (contínua)' : '')+': '+d.animacoes[n].desc).join('\n') || '  (nenhuma)';
+  const L = CABECALHO.slice();
+  L.push('', '# Pedido de ajuste do objeto `'+id+'` ('+d.nome+')', '', 'Arquivo onde ele está: `'+arquivoDoLote(d)+'` (procure por `id:\''+id+'\'`).',
+    'Descrição atual: '+d.descricao, 'Tamanho (L x A x P, m): '+r.dim.map(x => +x.toFixed(2)).join(' x '),
+    'Partes: '+Object.keys(r.partes).join(', '), 'Parâmetros:', ps, 'Animações:', an,
+    v.estado ? '\nSituação na validação: '+v.estado+(v.comentario ? '. Comentário anterior: '+v.comentario : '') : '',
+    '', '## O que o dono quer', (pedido && pedido.trim()) || '(sem texto: melhore o visual e a clareza do objeto sem mudar nomes de partes nem de animações)',
+    '', '## Como entregar', '1. Edite só o necessário nesse arquivo (se for animação nova, acrescente em `animacoes`; se for parte nova, dê `nome`).',
+    '2. Se criar parâmetro ou animação nova, escreva `desc` curta (a IA de roteiro lê isso).', '3. Teste: abrir `biblioteca.html`, selecionar `'+id+'`, rodar todas as animações e clicar em "🔍 Verificar tudo". Sem erro no console.',
+    '4. Acrescente uma linha em `modulos/biblioteca/CHANGELOG.md` (data, `'+id+'`, o que mudou).', '5. Responda em uma frase dizendo o que mudou.');
+  return L.join('\n');
+}
+function promptNovo(f){
+  const L = CABECALHO.slice();
+  L.push('', '# Pedido de NOVO objeto: `'+f.id+'` ('+f.nome+')', '', 'Crie-o em `modulos/biblioteca/meus_objetos.js` com `LIB.registrar({...})` (lote `\'meus\'`). Use como modelo de estilo 2 ou 3 objetos parecidos de `lote1.js … lote9.js` (leia-os).',
+    '', 'O que é: '+f.desc, 'Tamanho aproximado: '+(f.tam || 'use o tamanho real em metros, com a base em y=0'), 'Referência visual: '+(f.ref || '(nenhuma)'),
+    'Partes que precisam se mexer (viram partes nomeadas): '+(f.partes || '(escolha as que fizerem sentido)'), 'Animações desejadas (nome: o que faz): '+(f.anims || '(escolha 2 a 4 que expliquem como a coisa funciona)'),
+    'Parâmetros desejados (material, cor, tamanho…): '+(f.params || '(escolha os úteis)'),
+    '', 'Objetos já existentes (não duplique; reaproveite o estilo): '+LIB.ordem.join(', '),
+    '', '## Como entregar', '1. Escreva o objeto e escolha `id` em minúsculas com sublinhado (`'+f.id+'`).', '2. Texturas procedurais do GUIA, 5 a 7 cores, low poly. Base em y=0, centrado.',
+    '3. Teste em `biblioteca.html` (ele aparece em "Meus objetos") e clique em "🔍 Verificar tudo".', '4. Linha no `modulos/biblioteca/CHANGELOG.md`.', '5. Responda em uma frase.');
+  return L.join('\n');
+}
+function verificar(){
+  const out = [], n = {obj: 0, anim: 0};
+  LIB.ordem.forEach(id => { let it; try{ it = LIB.construir(id); n.obj++; }catch(e){ out.push(id+': erro ao construir ('+e.message+')'); return; }
+    if(!it.dim.every(isFinite)) out.push(id+': tamanho inválido');
+    Object.keys(it.def.animacoes).forEach(nm => { const a = it.def.animacoes[nm]; n.anim++; if(!a.desc) out.push(id+'.'+nm+': falta desc');
+      [0, .3, a.dur*.5, a.dur, a.dur*2].forEach(t => { try{ LIB.reset(it.partes); a.aplicar(it.partes, t, {}, it.obj); it.obj.updateMatrixWorld(true); let ruim = false;
+        it.obj.traverse(o => { if(!isFinite(o.position.x+o.position.y+o.position.z+o.rotation.x+o.rotation.y+o.rotation.z+o.scale.x+o.scale.y+o.scale.z)) ruim = true; }); if(ruim) out.push(id+'.'+nm+' em t='+t.toFixed(1)+': valor inválido (NaN)'); }
+        catch(e){ out.push(id+'.'+nm+' em t='+t.toFixed(1)+': '+e.message); } }); }); });
+  const m = n.obj+' objetos e '+n.anim+' animações verificados: '+(out.length ? out.length+' problema(s):\n'+[...new Set(out)].slice(0, 15).join('\n') : 'tudo certo.');
+  alert(m); return out;
+}
+function novoObjeto(){
+  const w = document.createElement('div'); w.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:9;display:flex;align-items:center;justify-content:center';
+  w.innerHTML = '<div style="background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:16px;width:min(560px,92vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:8px"><h2 style="margin:0">Novo objeto</h2><p class="mu" style="margin:0">Preencha o que souber; o resto a IA decide. Gera um arquivo de pedido para o Codex ou o Claude Code criar o objeto em <code>meus_objetos.js</code>.</p>'
+    + ['id|id curto, sem espaço (ex.: bomba_calor)','nome|Nome (ex.: Bomba de calor)','desc|O que é e como é por fora (uma ou duas frases)','tam|Tamanho aproximado (ex.: 1,2 m de largura por 0,8 m de altura)','ref|Referência (texto ou link de imagem)','partes|Partes que se mexem (ex.: hélice, porta)','anims|Animações (ex.: ligar: a hélice gira; vazar: sai água)','params|Parâmetros (ex.: cor, material)'].map(x => { const [k, ph] = x.split('|'); return '<input data-k="'+k+'" placeholder="'+ph+'" style="width:100%;box-sizing:border-box">'; }).join('')
+    + '<div class="row"><button id="nvG" class="on">Baixar pedido (.md)</button><button id="nvC">Copiar pedido</button><button id="nvX">Fechar</button></div><span class="mu" id="nvM"></span></div>';
+  document.body.appendChild(w);
+  const ler = () => { const f = {}; w.querySelectorAll('input').forEach(i => f[i.dataset.k] = i.value.trim()); f.id = (f.id || f.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); if(!f.nome) f.nome = f.id; return f; };
+  const ok = f => { if(!f.id || !f.desc){ w.querySelector('#nvM').textContent = 'Preencha ao menos o nome e o que é.'; return false; } if(LIB.itens[f.id]){ w.querySelector('#nvM').textContent = 'Já existe um objeto com esse id; use "Pedir mudança" nele.'; return false; } return true; };
+  w.querySelector('#nvX').onclick = () => w.remove();
+  w.querySelector('#nvG').onclick = () => { const f = ler(); if(ok(f)){ baixar('pedido-novo-'+f.id+'.md', promptNovo(f)); w.querySelector('#nvM').textContent = 'Baixado. Entregue ao Codex/Claude Code e depois recarregue a página.'; } };
+  w.querySelector('#nvC').onclick = () => { const f = ler(); if(ok(f)) (navigator.clipboard ? navigator.clipboard.writeText(promptNovo(f)) : Promise.reject()).then(() => { w.querySelector('#nvM').textContent = 'Copiado.'; }, () => { baixar('pedido-novo-'+f.id+'.md', promptNovo(f)); }); };
 }
 /* ---------- início ---------- */
 async function iniciar(){
@@ -159,6 +219,7 @@ async function iniciar(){
   $('bRepouso').onclick = () => { estado.anim = null; };
   $('bPanorama').onclick = e => { if(estado.pano){ selecionar(estado.sel); } else { panorama(); e.target.classList.add('on'); } };
 }
+$('bNovo').onclick = novoObjeto; $('bVerif').onclick = verificar;
 $('bBaixar').onclick = () => { const b = new Blob([JSON.stringify(estado.val, null, 2)], {type:'application/json'}), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'validacao.json'; a.click(); };
 iniciar();
 window.__BIB = {estado, selecionar, mostra, panorama, LIB, R, cam, ctl};
