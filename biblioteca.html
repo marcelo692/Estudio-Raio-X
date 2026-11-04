@@ -16,7 +16,7 @@ header h1{font-size:16px;margin:0}header .mu{color:var(--mu);font-size:12px}head
 .tag.ok{color:var(--ok);border-color:var(--ok)}.tag.aj{color:var(--aj);border-color:var(--aj)}.tag.rj{color:var(--rj);border-color:var(--rj)}
 #centro{position:relative;min-width:0}#cv{width:100%;height:100%;display:block}
 #hud{position:absolute;left:12px;top:10px;font-size:12px;color:var(--mu);pointer-events:none;text-shadow:0 1px 2px #000}
-#barra{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#gal{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;z-index:4}#gal[hidden]{display:none}#galTopo{display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--ln)}#galQ{background:var(--pn);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:6px 10px;width:240px}#galGrade{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:calc(var(--ts,200px) + 34px);gap:10px;padding:12px;align-content:start}.gt{background:var(--pn);border:1px solid var(--ln);border-radius:10px;overflow:hidden;cursor:pointer;position:relative}.gt:hover{border-color:var(--ac)}.gt .qd{position:relative;width:100%;height:var(--ts,200px);background:#2a3446}.gt{display:block!important;height:auto!important}.gt canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.gt .nm b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt .nm small{white-space:nowrap}.gt .nm{padding:6px 8px;font-size:12.5px;display:flex;justify-content:space-between;gap:6px}.gt .nm small{color:var(--mu)}.gt .tag{position:absolute;top:6px;right:6px}#barra{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 button,select,input,textarea{font:inherit;color:var(--tx);background:#252d3b;border:1px solid var(--ln);border-radius:8px;padding:6px 10px}
 button{cursor:pointer}button:hover{background:#2d3748}button.on{background:var(--ac);border-color:var(--ac)}
 #lado{overflow:auto;border-left:1px solid var(--ln);background:var(--pn);padding:12px}
@@ -34,7 +34,8 @@ h3{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 <header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><button id="bNovo" title="Gera o pedido para a IA (Codex ou Claude Code) criar um objeto que não existe">➕ Novo objeto</button><button id="bVerif" title="Constrói todos os objetos e roda todas as animações procurando erro">🔍 Verificar tudo</button><button id="bBaixar" title="Baixa um arquivo com suas anotações">Baixar anotações</button><a href="index.html">← voltar ao estúdio</a></header>
 <aside id="lista"></aside>
 <main id="centro"><canvas id="cv"></canvas><div id="hud"></div>
-  <div id="barra"><button id="bGirar" class="on">Girar</button><button id="bRegua">Régua 1 m</button><button id="bPanorama">Ver todos lado a lado</button><button id="bRepouso">Repouso</button><span id="anims" style="display:contents"></span></div></main>
+  <div id="gal"><div id="galTopo"><input id="galQ" placeholder="Buscar objeto…"><span class="mu" id="galN"></span></div><div id="galGrade"></div></div>
+  <div id="barra"><button id="bGirar" class="on">Girar</button><button id="bRegua">Régua 1 m</button><button id="bGaleria" class="on">▦ Galeria</button><button id="bRepouso">Repouso</button><span id="anims" style="display:contents"></span></div></main>
 <aside id="lado"><div id="info"></div></aside>
 <script src="lib/three.min.js"></script><script src="lib/OrbitControls.js"></script>
 <script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script><script src="modulos/biblioteca/lote2.js"></script><script src="modulos/biblioteca/lote3.js"></script><script src="modulos/biblioteca/lote4.js"></script><script src="modulos/biblioteca/lote5.js"></script><script src="modulos/biblioteca/lote6.js"></script><script src="modulos/biblioteca/lote7.js"></script><script src="modulos/biblioteca/lote8.js"></script><script src="modulos/biblioteca/lote9.js"></script><script src="modulos/biblioteca/meus_objetos.js"></script>
@@ -62,7 +63,7 @@ function enquadra(dim, centro){
   ctl.target.set(centro ? centro[0] : 0, h*.45, centro ? centro[2] : 0); cam.position.set(ctl.target.x + d*.7, h*.7 + d*.35, ctl.target.z + d*.9); ctl.update();
 }
 function mostra(id){
-  estado.pano = false; $('bPanorama').classList.remove('on'); limpa();
+  estado.pano = false; limpa();
   atual = LIB.construir(id, estado.params); if(!atual) return;
   palco.add(atual.obj); enquadra(atual.dim); estado.anim = null; estado.relogio = 0; regua();
   $('hud').textContent = atual.def.nome+' · '+atual.dim.map(v => v.toFixed(1)).join(' × ')+' m (l × a × p)';
@@ -86,13 +87,13 @@ function botoesAnim(){
   const box = $('anims'); box.innerHTML = ''; if(!atual) return;
   Object.keys(atual.def.animacoes).forEach(n => { const a = atual.def.animacoes[n], b = document.createElement('button'); b.textContent = '▶ '+n+(a.loop ? ' ∞' : ''); b.title = a.desc; b.onclick = () => { estado.anim = {n, t0:performance.now()/1000}; }; box.appendChild(b); });
 }
-function quadro(){
-  requestAnimationFrame(quadro); ctl.autoRotate = estado.giro && !estado.anim && !estado.pano; ctl.autoRotateSpeed = 1.2; ctl.update();
+function quadro(agora){
+  requestAnimationFrame(quadro); desenhaGaleria(agora || performance.now()); ctl.autoRotate = estado.giro && !estado.anim && !estado.pano; ctl.autoRotateSpeed = 1.2; ctl.update();
   if(atual && !estado.pano){
     LIB.reset(atual.partes);
     if(estado.anim){ const a = atual.def.animacoes[estado.anim.n], t = performance.now()/1000 - estado.anim.t0; if(a){ if(a.loop || t < a.dur + .6){ a.aplicar(atual.partes, a.loop ? t : Math.min(t, a.dur), {}, atual.obj); } else { a.aplicar(atual.partes, a.dur, {}, atual.obj); } } }
   }
-  R.render(cena, cam);
+  if(!gal.ativa) R.render(cena, cam);
 }
 /* ---------- miniaturas ---------- */
 function miniaturas(){
@@ -122,6 +123,7 @@ function lista(){
   }); resumo();
 }
 function selecionar(id){
+  if(!$('gal').hidden) fechaGaleria();
   estado.sel = id; const d = LIB.itens[id]; estado.params = Object.assign(d.defaults(), (estado.val[id] && estado.val[id].params) || {}); mostra(id); botoesAnim(); painel(); lista();
 }
 function painel(){
@@ -208,6 +210,45 @@ function novoObjeto(){
   w.querySelector('#nvG').onclick = () => { const f = ler(); if(ok(f)){ baixar('pedido-novo-'+f.id+'.md', promptNovo(f)); w.querySelector('#nvM').textContent = 'Baixado. Entregue ao Codex/Claude Code e depois recarregue a página.'; } };
   w.querySelector('#nvC').onclick = () => { const f = ler(); if(ok(f)) (navigator.clipboard ? navigator.clipboard.writeText(promptNovo(f)) : Promise.reject()).then(() => { w.querySelector('#nvM').textContent = 'Copiado.'; }, () => { baixar('pedido-novo-'+f.id+'.md', promptNovo(f)); }); };
 }
+
+/* ---------- galeria: grade de 4 colunas com miniaturas girando (só as visíveis são desenhadas) ---------- */
+const GR = new T.WebGLRenderer({antialias:true, alpha:false}); GR.setSize(240, 240, false); GR.setPixelRatio(1);
+const cenaG = new T.Scene(); cenaG.background = new T.Color('#2a3446'); cenaG.add(new T.HemisphereLight('#f4f7ff', '#8a8f99', .9));
+const solG = new T.DirectionalLight('#fff1dc', .9); solG.position.set(4, 7, 5); cenaG.add(solG);
+const camG = new T.PerspectiveCamera(36, 1, .05, 100), gal = {tiles:[], vis:new Set(), cache:{}, hover:null, ativa:true};
+function tileDe(id){
+  const d = LIB.itens[id], v = estado.val[id], el = document.createElement('div'); el.className = 'gt'; el.dataset.id = id;
+  el.innerHTML = '<div class="qd"><canvas width="240" height="240"></canvas></div><div class="nm"><b></b><small></small></div><span class="tag"></span>';
+  el.querySelector('b').textContent = d.nome; el.querySelector('small').textContent = Object.keys(d.animacoes).length+' anim.';
+  const tg = el.querySelector('.tag'); tg.textContent = v ? ROT[v.estado] : 'pendente'; if(v) tg.classList.add(v.estado);
+  el.onclick = () => { fechaGaleria(); selecionar(id); };
+  el.onmouseenter = () => { gal.hover = {id, i:0, t0:performance.now()/1000}; }; el.onmouseleave = () => { if(gal.hover && gal.hover.id === id) gal.hover = null; };
+  return {id, el, cv: el.querySelector('canvas'), cx: el.querySelector('canvas').getContext('2d'), fase: Math.random()*6};
+}
+function tamTile(){ const g = $('galGrade'), w = g.clientWidth; if(w) g.style.setProperty('--ts', Math.floor((w - 24 - 30)/4)+'px'); }
+addEventListener('resize', tamTile);
+function montaGaleria(filtro){
+  tamTile();
+  const g = $('galGrade'); g.innerHTML = ''; gal.tiles = []; gal.vis.clear(); const q = (filtro || '').toLowerCase().trim();
+  const ids = LIB.ordem.filter(id => !q || (LIB.itens[id].nome+' '+id+' '+LIB.itens[id].categoria).toLowerCase().includes(q));
+  ids.forEach(id => { const t = tileDe(id); gal.tiles.push(t); g.appendChild(t.el); io.observe(t.el); }); $('galN').textContent = ids.length+' objetos · role para ver todos · clique para abrir';
+}
+const io = new IntersectionObserver(es => es.forEach(e => { const t = gal.tiles.find(x => x.el === e.target); if(t){ if(e.isIntersecting) gal.vis.add(t); else gal.vis.delete(t); } }), {root: $('galGrade'), rootMargin:'80px'});
+function desenhaGaleria(agora){
+  if(!gal.ativa) return; const tt = agora/1000;
+  gal.vis.forEach(t => {
+    let it = gal.cache[t.id]; if(!it){ it = gal.cache[t.id] = LIB.construir(t.id); if(!it) return; it.w = new T.Group(); it.w.add(it.obj); }
+    const dim = it.dim, d = Math.max(dim[1]*1.9, Math.max(dim[0], dim[2])*2.1, 2.4);
+    camG.position.set(d*.75, dim[1]*.7 + d*.3, d*.95); camG.lookAt(0, dim[1]*.42, 0);
+    it.w.rotation.y = tt*.7 + t.fase; LIB.reset(it.partes);
+    const h = gal.hover && gal.hover.id === t.id ? gal.hover : null;
+    if(h){ const nomes = Object.keys(it.def.animacoes); if(nomes.length){ const a = it.def.animacoes[nomes[h.i % nomes.length]], tr = tt - h.t0; if(a.loop ? true : tr < a.dur + .5) a.aplicar(it.partes, a.loop ? tr : Math.min(tr, a.dur), {}, it.obj); else { h.i++; h.t0 = tt; } } }
+    cenaG.add(it.w); GR.render(cenaG, camG); cenaG.remove(it.w); t.cx.drawImage(GR.domElement, 0, 0, 240, 240);
+  });
+}
+function abreGaleria(){ gal.ativa = true; $('gal').hidden = false; tamTile(); $('bGaleria').classList.add('on'); if(!gal.tiles.length) montaGaleria($('galQ').value); }
+function fechaGaleria(){ gal.ativa = false; $('gal').hidden = true; $('bGaleria').classList.remove('on'); gal.vis.clear(); }
+$('galQ').oninput = () => montaGaleria($('galQ').value);
 /* ---------- início ---------- */
 async function iniciar(){
   ajusta();
@@ -217,7 +258,8 @@ async function iniciar(){
   $('bGirar').onclick = e => { estado.giro = !estado.giro; e.target.classList.toggle('on', estado.giro); };
   $('bRegua').onclick = e => { estado.regua = !estado.regua; e.target.classList.toggle('on', estado.regua); regua(); };
   $('bRepouso').onclick = () => { estado.anim = null; };
-  $('bPanorama').onclick = e => { if(estado.pano){ selecionar(estado.sel); } else { panorama(); e.target.classList.add('on'); } };
+  $('bGaleria').onclick = () => { $('gal').hidden ? abreGaleria() : fechaGaleria(); };
+  abreGaleria();
 }
 $('bNovo').onclick = novoObjeto; $('bVerif').onclick = verificar;
 $('bBaixar').onclick = () => { const b = new Blob([JSON.stringify(estado.val, null, 2)], {type:'application/json'}), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'validacao.json'; a.click(); };

@@ -78,3 +78,6 @@ Abra "🧱 Biblioteca" no topo do estúdio (ou `http://localhost:8766/biblioteca
 
 ## Biblioteca: pedir ajuste e criar objetos
 Na biblioteca, escreva em "Pedir mudança neste objeto" o que quer (ajuste ou animação nova) e baixe o pedido; entregue ao Codex/Claude Code aberto na pasta do estúdio, recarregue a página e confira. Para um objeto que não existe: "➕ Novo objeto". "🔍 Verificar tudo" acusa erros. Detalhes em modulos/biblioteca/GUIA.md.
+
+## Galeria da biblioteca
+A biblioteca abre numa grade de 4 colunas com rolagem e miniaturas girando (só as visíveis são desenhadas). Passe o mouse para ver as animações do objeto; clique para abrir e mexer nelas. O botão "▦ Galeria" volta à grade; há busca por nome.
