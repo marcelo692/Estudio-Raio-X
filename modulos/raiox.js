@@ -713,9 +713,10 @@ RX.montarUI = function(host){
     + '<p class="note">Vídeos longos saem em partes: o cenário e as peças ficam iguais e cada parte acrescenta elementos novos. Escolha o tamanho, copie o prompt da parte 1, cole na IA e traga a resposta aqui. Depois faça o mesmo com as próximas partes.</p>'
     + '<div class="row"><input id="rxTema" type="text" placeholder="Tema do vídeo (ex.: Como funciona o monitor?)" style="flex:1;min-width:200px">'
     + '<select id="rxDur">'+DURACOES.map(d => '<option value="'+d[0]+'">'+d[1]+'</option>').join('')+'</select>'
-    + '<select id="rxParte"></select><button class="btn primary" id="rxCopiar">Copiar prompt</button></div>'
+    + '<select id="rxParte"></select><button class="btn primary" id="rxCopiar">Copiar prompt</button><button class="btn" id="rxBaixar">Baixar prompt (.txt)</button></div>'
     + '<p class="note" id="rxInfo"></p>'
-    + '<textarea id="rxResp" spellcheck="false" placeholder="Cole aqui a resposta da IA (JSON da parte)" style="width:100%;box-sizing:border-box;min-height:110px;font:12px/1.4 ui-monospace,Consolas,monospace"></textarea>'
+    + '<div id="rxDrop" style="border:2px dashed var(--line,#bbb);border-radius:10px;padding:12px;margin:8px 0;text-align:center;font-size:13px">Arraste aqui os arquivos das partes (<b>.json</b>) ou <label style="text-decoration:underline;cursor:pointer">escolha no computador<input id="rxArq" type="file" multiple accept=".json,.txt,application/json,text/plain" hidden></label>. Pode ser em qualquer ordem: o estúdio lê o número da parte, monta na ordem certa e avisa o que falta.<div id="rxFila" class="note" style="margin-top:6px"></div></div>'
+    + '<textarea id="rxResp" spellcheck="false" placeholder="Ou cole aqui o JSON da parte (texto)" style="width:100%;box-sizing:border-box;min-height:110px;font:12px/1.4 ui-monospace,Consolas,monospace"></textarea>'
     + '<div class="row"><button class="btn primary" id="rxAdd">Adicionar parte ao vídeo</button></div>'
     + '<span class="msg" id="rxMsg2"></span></div>'
     + '<div class="card"><h2>Animação (Raio-X)</h2>'
@@ -726,7 +727,7 @@ RX.montarUI = function(host){
     + '<h2 style="margin-top:14px">Blocos</h2><div class="row" style="margin-bottom:8px"><button class="btn" id="rxGravarTodos">Gravar todos os blocos (para conferir)</button></div>'
     + '<p class="note" id="rxVazio" hidden>Este roteiro ainda não tem animação. Use o formato “Raio-X” no gerador de prompt.</p>'
     + '<ol id="rxBlocos"></ol></div>';
-  ui = {tema: host.querySelector('#rxTema'), dur: host.querySelector('#rxDur'), parte: host.querySelector('#rxParte'), info: host.querySelector('#rxInfo'), resp: host.querySelector('#rxResp'), msg2: host.querySelector('#rxMsg2'),
+  ui = {fila: host.querySelector('#rxFila'), tema: host.querySelector('#rxTema'), dur: host.querySelector('#rxDur'), parte: host.querySelector('#rxParte'), info: host.querySelector('#rxInfo'), resp: host.querySelector('#rxResp'), msg2: host.querySelector('#rxMsg2'),
     ed: host.querySelector('#rxEditor'), msg: host.querySelector('#rxMsg'), blocos: host.querySelector('#rxBlocos'), vazio: host.querySelector('#rxVazio')};
   host.querySelector('#rxAplicar').addEventListener('click', () => aplicarTexto('substituir'));
   host.querySelector('#rxGravarTodos').addEventListener('click', gravarTodos);
@@ -740,6 +741,12 @@ RX.montarUI = function(host){
   host.querySelector('#rxDur').addEventListener('change', () => preencherPartes());
   host.querySelector('#rxParte').addEventListener('change', infoParte);
   host.querySelector('#rxCopiar').addEventListener('click', copiarPrompt);
+  host.querySelector('#rxBaixar').addEventListener('click', baixarPrompt);
+  const drop = host.querySelector('#rxDrop'), arq = host.querySelector('#rxArq');
+  arq.addEventListener('change', () => { lerArquivos([...arq.files]); arq.value = ''; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.background = 'rgba(47,111,228,.08)'; });
+  drop.addEventListener('dragleave', () => { drop.style.background = ''; });
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.style.background = ''; lerArquivos([...(e.dataTransfer.files || [])]); });
   host.querySelector('#rxAdd').addEventListener('click', adicionarParte);
   preencherPartes(true);
   RX.sincronizarUI(); RX.atualizarAvisos();
@@ -757,12 +764,55 @@ function infoParte(){
   const n = ui.parte.options.length, k = +ui.parte.value || 1;
   ui.info.textContent = n === 1 ? 'Vídeo curto, de uma parte só.' : 'Vídeo de cerca de '+Math.round(+ui.dur.value/60*10)/10+' min em '+n+' partes. '+(k === 1 ? 'A parte 1 cria o cenário e as peças base e já traz o plano das outras.' : 'A parte '+k+' recebe, dentro do prompt, tudo o que já existe para reaproveitar.');
 }
-function copiarPrompt(){
+function textoPrompt(){
   const k = +ui.parte.value || 1, n = ui.parte.options.length, s = E.script();
-  if(k > 1 && !(s && s.animacao)){ msg2('Primeiro adicione a parte 1 (o cenário e as peças base).', true); return; }
+  if(k > 1 && !(s && s.animacao)){ msg2('Primeiro adicione a parte 1 (o cenário e as peças base).', true); return null; }
   if(s && s.partes && k > 1 && k > (s.partes.atual || 0) + 1) msg2('Atenção: a parte '+((s.partes.atual||0)+1)+' ainda não foi adicionada.', true);
-  const plano = s && s.plano ? s.plano : null;
-  const txt = RX.prompt(ui.tema.value || (s && s.tema_video) || '', null, {parte:k, total:n, dur:Math.round(+ui.dur.value/n), plano});
+  return {k, n, txt: RX.prompt(ui.tema.value || (s && s.tema_video) || '', null, {parte:k, total:n, dur:Math.round(+ui.dur.value/n), plano: s && s.plano ? s.plano : null})};
+}
+function baixarPrompt(){
+  const r = textoPrompt(); if(!r) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([r.txt], {type:'text/plain;charset=utf-8'}));
+  a.download = 'prompt-raiox-parte-'+r.k+'-de-'+r.n+'.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  msg2('Prompt da parte '+r.k+' de '+r.n+' baixado. Anexe o arquivo no chat da IA e diga: "siga as instruções do arquivo".');
+}
+// ---- arquivos das partes (em qualquer ordem) ----
+const pool = {};
+function numeroDoArquivo(nome){ const m = /parte[-_ ]*(\d+)(?:[-_ ]*de[-_ ]*(\d+))?/i.exec(nome || ''); return m ? {k:+m[1], n: m[2] ? +m[2] : 0} : null; }
+async function lerArquivos(files){
+  const erros = [];
+  for(const f of files){
+    try{
+      const j = JSON.parse((await f.text()).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+      const nm = numeroDoArquivo(f.name), k = +j.parte || (nm && nm.k) || 0;
+      if(!j || !Array.isArray(j.falas)){ erros.push(f.name+': não tem "falas"'); continue; }
+      if(!k){ erros.push(f.name+': não achei o número da parte (nem no JSON nem no nome do arquivo)'); continue; }
+      j.parte = k; if(!j.total && nm && nm.n) j.total = nm.n;
+      pool[k] = j;
+    }catch(e){ erros.push(f.name+': JSON com erro ('+e.message+')'); }
+  }
+  await processarFila(erros);
+}
+async function processarFila(erros){
+  const s = E.script(); let atual = s && s.animacao && s.partes ? (s.partes.atual || 0) : 0, aplicadas = [];
+  const repetidas = Object.keys(pool).map(Number).filter(k => k <= atual && !(k === 1 && atual === 0)); repetidas.forEach(k => delete pool[k]);
+  while(pool[atual+1]){ const j = pool[atual+1]; delete pool[atual+1]; await aplicarParte(j); atual++; aplicadas.push(atual); }
+  const s2 = E.script(), total = Math.max(s2 && s2.partes ? s2.partes.total : 0, ...Object.values(pool).map(j => +j.total || 0), ...Object.keys(pool).map(Number));
+  const esperando = Object.keys(pool).map(Number).sort((a, b) => a - b), faltam = [];
+  if(esperando.length){ for(let k = atual+1; k < esperando[esperando.length-1]; k++) if(!pool[k]) faltam.push(k); }
+  const linhas = [];
+  if(repetidas.length) linhas.push('A parte '+repetidas.join(', ')+' já estava no vídeo; ignorei.');
+  if(aplicadas.length) linhas.push('Adicionada'+(aplicadas.length > 1 ? 's' : '')+' a'+(aplicadas.length > 1 ? 's partes ' : ' parte ')+aplicadas.join(', ')+'.');
+  if(esperando.length) linhas.push('Guardada'+(esperando.length > 1 ? 's' : '')+' esperando: parte'+(esperando.length > 1 ? 's ' : ' ')+esperando.join(', ')+(faltam.length || atual+1 < esperando[0] ? ' (falta a parte '+(atual+1)+(faltam.length > 1 ? ' e outras' : '')+')' : '')+'.');
+  else if(total && atual >= total) linhas.push('Vídeo completo: '+total+' partes.');
+  else if(total) linhas.push('Falta a parte '+(atual+1)+' de '+total+'.');
+  if(erros && erros.length) linhas.push('Problemas: '+erros.join(' · '));
+  ui.fila.textContent = linhas.join(' ');
+  msg2(linhas.join(' '), !!(erros && erros.length));
+  preencherPartes();
+}
+function copiarPrompt(){
+  const r = textoPrompt(); if(!r) return; const {k, n, txt} = r;
   const ok = () => msg2('Prompt da parte '+k+' de '+n+' copiado. Cole na IA e traga a resposta para a caixa abaixo.');
   if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => { ui.resp.value = txt; msg2('Não consegui copiar sozinho: o prompt está na caixa abaixo, selecione e copie.', true); });
   else { ui.resp.value = txt; msg2('Prompt na caixa abaixo: selecione e copie.', true); }
@@ -776,7 +826,7 @@ async function adicionarParte(){
 }
 async function aplicarParte(j){
   const s = E.script(), k = +j.parte || 1, total = +j.total || ui.parte.options.length;
-  const dur = +ui.dur.value;
+  const dur = j.total ? Math.round(+j.total*36) : +ui.dur.value;
   if(k === 1 || !s || !s.animacao){
     j.partes = {total, atual:1, dur}; j.tema_video = ui.tema.value.trim() || j.titulo || '';
     await E.carregar(j);
@@ -879,6 +929,8 @@ RX.prompt = function(tema, cat, op){
     L.push('{"parte":'+parte+',"total":'+total+',"falas":[{"quem":"mascote","texto":"...","bloco":"'+pre+'1"}],"animacao":{"pecas":{"so as novas":{}},"elementos":[{"so os novos":1}],"blocos":[{"id":"'+pre+'1","camera":{"base":true},"acoes":[]}]}'+(ultima ? ',"publicacao":{"youtube_titulo":"...","youtube_descricao":"...","tiktok":"...","instagram":"...","hashtags":["..."]},"verificar":["fato 1"]' : ',"verificar":["fato 1"]')+'}');
   }
   if(ultima) L.push('- publicacao (do vídeo COMPLETO): título do YouTube até 70 caracteres com emoji, terminando com #shorts; descrição com 2 ou 3 frases e, na última linha, exatamente: "Animação e vozes feitas com ajuda de inteligência artificial."; hashtags de 4 a 6 em minúsculas, incluindo pordentrodoobvio.');
+  const slug = String(tema || 'video').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'video';
+  L.push('- ENTREGA: se você puder criar arquivos, entregue o JSON como ARQUIVO para download chamado exatamente "raiox-'+slug+'-parte-'+parte+'-de-'+total+'.json" e escreva só uma frase no chat. Se não puder criar arquivos, responda com o JSON em texto.');
   L.push('- verificar: cada afirmação factual desta parte que uma pessoa deve conferir antes de publicar (no máximo 6).', '', 'TEMA: '+(tema && tema.trim() ? tema.trim() : '[escreva o tema aqui]'));
   return L.join('\n');
 };

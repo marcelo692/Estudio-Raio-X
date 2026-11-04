@@ -63,3 +63,6 @@ Só a **voz neural** entra no vídeo. A voz do navegador serve só para o previe
 3. Escolha a **Parte 2** e repita. O prompt das partes seguintes já leva tudo o que existe (peças e elementos) para a IA reaproveitar; o cenário não muda.
 4. Assista no player. Para ajustar um trecho, use a lista de blocos (arrastar, ▶, ⏺, −/+, ✕) ou cole só um pedaço novo em **Animação (Raio-X)** e use **Mesclar por id**.
 5. Quer ver como fica? Clique em **Exemplo: prédio (2 partes)**.
+
+## Arquivos em vez de texto
+O prompt agora pede que a IA entregue cada parte como **arquivo** (`raiox-<tema>-parte-1-de-3.json`). Arraste os arquivos para a caixa pontilhada do cartão "Vídeo por partes" (ou use "escolha no computador"), em qualquer ordem: o estúdio lê o número da parte, monta na ordem certa e avisa qual falta. Se o prompt for grande, use **Baixar prompt (.txt)** e anexe o arquivo no chat da IA.
