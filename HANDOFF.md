@@ -41,3 +41,7 @@ O cartão **Vídeo por partes** gera o prompt de cada parte (tamanho escolhido: 
 - O Zuco original e o Raio-X compartilham `~/.estudio-zuco.json` (mesma chave da ElevenLabs), mas têm `padrao.json`, `cache_voz/` e `localStorage` separados (porta diferente).
 - Na nuvem, a exportação é lenta (sem GPU): no PC com placa de vídeo é bem mais rápida.
 - Rótulos e setas ficam por cima do mundo (sem teste de profundidade); posicione com `desloc` para não cobrir o assunto.
+
+## Estado da biblioteca (atualizar a cada lote)
+- 90 objetos em 9 lotes (1 cenário/construção, 2 mecânica/fluidos, 3 casa/eletrônicos, 4 natureza/clima, 5 veículos/cidade, 6 conceitos/ciência, 7 construção, 8 tecnologia, 9 cotidiano/economia). Lotes 1-3 já tiveram ajustes pelas anotações do Marcelo; 4-9 ainda aguardam a validação dele em biblioteca.html.
+- Integrada ao motor e ao prompt. Pendente: ambiente de clima (chuva/céu de tempestade como cenário), medidor numérico, cartões de título.

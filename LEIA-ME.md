@@ -66,3 +66,6 @@ Só a **voz neural** entra no vídeo. A voz do navegador serve só para o previe
 
 ## Arquivos em vez de texto
 O prompt agora pede que a IA entregue cada parte como **arquivo** (`raiox-<tema>-parte-1-de-3.json`). Arraste os arquivos para a caixa pontilhada do cartão "Vídeo por partes" (ou use "escolha no computador"), em qualquer ordem: o estúdio lê o número da parte, monta na ordem certa e avisa qual falta. Se o prompt for grande, use **Baixar prompt (.txt)** e anexe o arquivo no chat da IA.
+
+## Biblioteca de objetos
+Abra "🧱 Biblioteca" no topo do estúdio (ou `http://localhost:8766/biblioteca.html`) para ver os objetos 3D, testar as animações e marcar Aprovar / Ajustar / Rejeitar com comentário. O prompt do estúdio já lista todos os objetos: a IA monta o vídeo chamando-os pelo nome.

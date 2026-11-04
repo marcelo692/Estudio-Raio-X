@@ -127,11 +127,12 @@ input[type=password]{font:13px var(--mono);background:#121318;color:var(--fg);bo
 <div class="wrap">
   <header>
     <div>
-      <span class="eyebrow">Por Dentro do Óbvio</span>
+      <span class="eyebrow">Vídeos explicativos em 3D</span>
       <h1>Estúdio Raio-X</h1>
     </div>
     <div class="row" style="gap:12px">
       <span class="status" id="status">verificando servidor…</span>
+      <a class="btn sm" href="biblioteca.html" target="_blank" rel="noopener" title="Ver e validar os objetos 3D da biblioteca" style="text-decoration:none">🧱 Biblioteca</a>
       <button class="btn sm" id="postBtn" title="Fila de vídeos prontos e o que já foi postado (abre outra janela)">📅 Postagens</button>
       <button class="btn sm" id="cfgBtn" title="Chaves, atualização e padrões">⚙ Configurações</button>
     </div>
@@ -218,7 +219,7 @@ input[type=password]{font:13px var(--mono);background:#121318;color:var(--fg);bo
 
       <div id="rxCard"></div>
 
-      <div class="card">
+      <div class="card" id="cardIA">
         <h2>Gerar roteiro com IA</h2>
         <div class="field"><label for="formatoSel">Formato</label><select id="formatoSel"></select></div>
         <div class="field"><label for="cenModo">Cenário</label><select id="cenModo">
@@ -403,6 +404,8 @@ input[type=password]{font:13px var(--mono);background:#121318;color:var(--fg);bo
 <script src="lib/mp4-muxer.js"></script>
 <script src="modulos/exemplo-descarga.js"></script>
 <script src="modulos/exemplo-predio.js"></script>
+<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script><script src="modulos/biblioteca/lote2.js"></script><script src="modulos/biblioteca/lote3.js"></script><script src="modulos/biblioteca/lote4.js"></script><script src="modulos/biblioteca/lote5.js"></script><script src="modulos/biblioteca/lote6.js"></script><script src="modulos/biblioteca/lote7.js"></script><script src="modulos/biblioteca/lote8.js"></script><script src="modulos/biblioteca/lote9.js"></script>
+<script src="modulos/exemplo-furacao.js"></script>
 <script src="modulos/raiox.js"></script>
 <script>
 (function(){

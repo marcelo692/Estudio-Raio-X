@@ -45,7 +45,7 @@ const lista = x => x == null ? [] : (Array.isArray(x) ? x : [x]);
 let anim = null, animSrc = null;            // animação em uso e o objeto de origem (para detectar troca)
 let mundo = null, floor = null;
 let nos = {}, elems = {};                   // nós animáveis ("id" e "id.parte") e elementos
-let efeitos = [], blocos = [], trilhas = {}, pulsos = [], giros = [];
+let efeitos = [], blocos = [], trilhas = {}, pulsos = [], giros = [], libAnims = [];
 let tlRef = null;                           // timeline usada na última compilação
 let ligado = false, salvo = null;
 let layout = {pip:{x:.03, y:.63, w:.36}, legenda:54};
@@ -123,7 +123,7 @@ function criarElemento(def, pecas){
   const id = def && def.id;
   if(!id || typeof id !== 'string' || elems[id]){ avisar('elemento sem "id" ou com id repetido'); return; }
   const g = new T3.Group(); g.name = id;
-  let ancoras = {}, mats = [], nivelObj = null;
+  let ancoras = {}, mats = [], nivelObj = null, libInfo = null;
   if(def.peca){
     const P = pecas[def.peca];
     if(!P){ avisar('peça "'+def.peca+'" não existe (elemento '+id+')'); }
@@ -139,10 +139,24 @@ function criarElemento(def, pecas){
       });
       ancoras = Object.assign({}, P.ancoras || {});
     }
+  } else if(def.lib){
+    const LB = window.RAIOX_LIB, r = LB && LB.construir(def.lib, def.params || {});
+    if(!r) avisar('objeto "'+def.lib+'" não existe na biblioteca (elemento '+id+')');
+    else {
+      g.add(r.obj); ancoras = Object.assign({}, r.ancoras || {});
+      const partesNos = [];
+      Object.keys(r.partes).forEach(n => {
+        const o = r.partes[n], rs = o.userData.rest, ms = [];
+        o.traverse(m => { if(m.isMesh && m.material && m.material.userData && m.material.userData.e && ms.indexOf(m.material) < 0) ms.push(m.material); });
+        const no = registrar(id+'.'+n, o, ms, {pos:rs.p.toArray(), rot:[rs.r.x*180/Math.PI, rs.r.y*180/Math.PI, rs.r.z*180/Math.PI], esc:rs.s.toArray(), oculto: rs.v === false});
+        no.base.escY = rs.s.y; partesNos.push(no);
+      });
+      libInfo = {def:r.def, partes:r.partes, params:r.params};
+    }
   } else if(def.tipo){
     const f = criarForma(Object.assign({}, def, {forma:def.tipo === 'liquido' ? 'liquido' : def.tipo}));
     g.add(f.obj); mats = f.mats; nivelObj = f.nivelObj;
-  } else avisar('elemento '+id+' precisa de "peca" ou "tipo"');
+  } else avisar('elemento '+id+' precisa de "lib", "peca" ou "tipo"');
   // âncoras automáticas pela caixa do elemento (não sobrescrevem as suas)
   const bb = new T3.Box3().setFromObject(g);
   if(!bb.isEmpty()){
@@ -152,7 +166,7 @@ function criarElemento(def, pecas){
   }
   mundo.add(g);
   const no = registrar(id, g, mats, def, nivelObj);
-  elems[id] = {g, ancoras, no};
+  elems[id] = {g, ancoras, no, lib: libInfo};
   g.position.set(...no.base.pos); g.rotation.set(rad(no.base.rot[0]), rad(no.base.rot[1]), rad(no.base.rot[2])); g.scale.set(...no.base.esc);
 }
 function limparMundo(){
@@ -160,7 +174,7 @@ function limparMundo(){
   efeitos = [];
   if(mundo){ mundo.traverse(o => { if(o.geometry) o.geometry.dispose(); if(o.material && !o.material.userData.keep) o.material.dispose && o.material.dispose(); }); if(mundo.parent) mundo.parent.remove(mundo); }
   mundo = new T3.Group(); E.SCENES.raiox.g.add(mundo);
-  nos = {}; elems = {}; trilhas = {}; pulsos = []; giros = []; blocos = []; tlRef = null; avisos.clear();
+  nos = {}; elems = {}; trilhas = {}; pulsos = []; giros = []; libAnims = []; blocos = []; tlRef = null; avisos.clear();
 }
 function montar(a){
   limparMundo(); anim = a;
@@ -437,6 +451,18 @@ function compilarAcao(a, rec){
     case 'fluxo': if(a.de == null || a.para == null){ avisar('fluxo precisa de "de" e "para"'); break; } efeitos.push(criarFluxo(a, t0, t1)); break;
     case 'rotulo': efeitos.push(criarRotulo(a, t0, a.dur != null ? t1 : fimBloco)); break;
     case 'seta': efeitos.push(criarSeta(a, t0, a.dur != null ? t1 : fimBloco)); break;
+    case 'anim': {
+      const ids = lista(a.alvo);
+      ids.forEach(id => {
+        const el = elems[id];
+        if(!el || !el.lib){ avisar('"anim" precisa de um elemento da biblioteca; "'+id+'" não é'); return; }
+        const an = el.lib.def.animacoes[a.nome];
+        if(!an){ avisar('o objeto "'+el.lib.def.id+'" não tem a animação "'+a.nome+'" (tem: '+Object.keys(el.lib.def.animacoes).join(', ')+')'); return; }
+        const dd = a.dur != null ? Math.max(.05, num(a.dur, an.dur)) : an.dur;
+        const fim = an.loop ? (a.dur != null ? t0 + dd : Infinity) : t0 + dd;
+        libAnims.push({el, an, t0, t1: fim, args: a.args && typeof a.args === 'object' ? a.args : {}});
+      });
+      break; }
     case 'temperatura': efeitos.push(criarTemperatura(a, t0, a.dur != null && a.ate_fim !== true ? t1 + num(a.fica, 1.2) : fimBloco)); break;
     default: avisar('ação "'+a.faz+'" não existe');
   }
@@ -459,7 +485,7 @@ function normCam(c, prev){
   return {a:A, b:B, ease: c.ease && EASES[c.ease] ? c.ease : 'suave'};
 }
 function compilar(){
-  efeitos.forEach(e => e.apagar && e.apagar()); efeitos = []; trilhas = {}; pulsos = []; giros = []; blocos = [];
+  efeitos.forEach(e => e.apagar && e.apagar()); efeitos = []; trilhas = {}; pulsos = []; giros = []; libAnims = []; blocos = [];
   Object.values(nos).forEach(n => { n.temPulso = false; });
   const tl = E.timeline(), s = E.script(); tlRef = tl;
   const lista_ = Array.isArray(anim.blocos) ? anim.blocos : [], porId = {};
@@ -537,6 +563,8 @@ RX.ativo = function(script){
   return true;
 };
 RX.ligado = () => ligado;
+RX.pipLigado = () => { try{ return localStorage.getItem('rx-pip') !== '0'; }catch(e){ return true; } };
+RX.pipDefinir = v => { try{ localStorage.setItem('rx-pip', v ? '1' : '0'); }catch(e){} };
 RX.legendaPos = () => layout.legenda;
 RX.atualizar = function(t, l, T, o){
   o = o || {};
@@ -544,7 +572,9 @@ RX.atualizar = function(t, l, T, o){
   if(!ligado){ ligado = true; }
   E.zuco.g.visible = false; E.guest.g.visible = false; E.SKY.visible = true; E.SCENES.raiox.g.visible = true;
   aplicarAmbiente();
+  Object.values(elems).forEach(el => { if(el.lib && window.RAIOX_LIB) window.RAIOX_LIB.reset(el.lib.partes); });
   for(const k in nos) aplicarNo(nos[k], t);
+  libAnims.forEach(la => { if(t < la.t0 || (la.an.loop && t > la.t1)) return; const tt = la.an.loop ? (t - la.t0) : Math.min(1, (t - la.t0)/Math.max(.01, la.t1 - la.t0))*la.an.dur; la.an.aplicar(la.el.lib.partes, tt, la.args, la.el.g); });
   mundo.updateMatrixWorld(true);
   // nuvens balançam com o tempo do vídeo
   Object.values(elems).forEach(el => el.g.traverse(ob => { if(ob.userData.nuvem) ob.children.forEach(c => { c.position.y = c.userData.y0 + Math.sin(t*1.6 + c.userData.i)*.04; }); }));
@@ -570,7 +600,7 @@ function pipRect(vw, vh){
   return {x: vw*p.x, y: vh*p.y, w, h: w*(num(p.ar, 1.0))};
 }
 RX.pip = function(R){
-  if(!ligado) return;
+  if(!ligado || !RX.pipLigado()) return;
   const sz = R.getSize(new T3.Vector2());
   const vw = Math.min(sz.x, sz.y*9/16), vh = vw*16/9, ox = (sz.x - vw)/2, oy = (sz.y - vh)/2;
   const r = pipRect(vw, vh), x = ox + r.x, y = oy + r.y, gy = sz.y - (y + r.h);
@@ -709,8 +739,16 @@ RX.montarUI = function(host){
     + '#rxBlocos .rxn{font-weight:700;opacity:.6}#rxBlocos .rxd{opacity:.7;font-variant-numeric:tabular-nums}#rxBlocos .rxb{display:flex;gap:4px}'
     + '#rxEditor{width:100%;box-sizing:border-box;min-height:220px;font:12px/1.4 ui-monospace,Consolas,monospace}';
   document.head.appendChild(css);
-  host.innerHTML = '<div class="card"><h2>Vídeo por partes (Raio-X)</h2>'
-    + '<p class="note">Vídeos longos saem em partes: o cenário e as peças ficam iguais e cada parte acrescenta elementos novos. Escolha o tamanho, copie o prompt da parte 1, cole na IA e traga a resposta aqui. Depois faça o mesmo com as próximas partes.</p>'
+  // modo Raio-X: esconde o que é só do estúdio do Zuco (convidado, cenários, formatos, final) e renomeia a voz
+  const css2 = document.createElement('style');
+  css2.textContent = '#cardIA,[data-fold="convidado"],[data-fold="final"],#fZ,#fG,#elG,#elPrevG,#nvG,#ntG,#nsG,#bvG,#volG,#volAuto,#ritmoSel{display:none!important}'
+    + '[for="elG"],[for="nvG"],[for="ntG"],[for="nsG"],[for="bvG"],[for="volG"],[for="volAuto"],[for="ritmoSel"],.field.ms:has(#ntG){display:none!important}';
+  document.head.appendChild(css2);
+  const ren = (sel, txt) => { const e = document.querySelector(sel); if(e) e.textContent = txt; };
+  ren('[for="elZ"]', 'Voz do narrador'); ren('[for="nvZ"]', 'Voz do narrador'); ren('[for="bvZ"]', 'Voz do narrador'); ren('[for="volZ"]', 'Volume da voz'); ren('#elPrevZ', '▶ Ouvir a voz');
+  host.innerHTML = '<div class="card"><h2>Criar vídeo</h2>'
+    + '<p class="note">Vídeos longos saem em partes: o cenário e as peças ficam iguais e cada parte acrescenta elementos novos. Passo a passo: 1) escreva o tema e escolha o tamanho; 2) baixe o arquivo do prompt e anexe na IA (ChatGPT, Claude…); 3) baixe o arquivo JSON que ela devolver e solte aqui. Repita para as próximas partes.</p>'
+    + '<label class="row" style="gap:6px;font-size:13px;margin:4px 0"><input type="checkbox" id="rxPip"> Mostrar o apresentador (Zuco) no canto da tela</label>'
     + '<div class="row"><input id="rxTema" type="text" placeholder="Tema do vídeo (ex.: Como funciona o monitor?)" style="flex:1;min-width:200px">'
     + '<select id="rxDur">'+DURACOES.map(d => '<option value="'+d[0]+'">'+d[1]+'</option>').join('')+'</select>'
     + '<select id="rxParte"></select><button class="btn primary" id="rxCopiar">Copiar prompt</button><button class="btn" id="rxBaixar">Baixar prompt (.txt)</button></div>'
@@ -722,7 +760,7 @@ RX.montarUI = function(host){
     + '<div class="card"><h2>Animação (Raio-X)</h2>'
     + '<p class="note">O JSON da animação (peças, elementos e blocos) pode vir junto do roteiro ou ser colado aqui. “Mesclar” troca só o que tem o mesmo id e acrescenta o resto, para você pedir alterações pontuais à IA.</p>'
     + '<textarea id="rxEditor" spellcheck="false" aria-label="Animação em JSON"></textarea>'
-    + '<div class="row"><button class="btn primary" id="rxAplicar">Aplicar animação</button><button class="btn" id="rxMesclar">Mesclar por id</button><button class="btn" id="rxExemplo">Exemplo: descarga</button><button class="btn" id="rxExemplo2">Exemplo: prédio (2 partes)</button></div>'
+    + '<div class="row"><button class="btn primary" id="rxAplicar">Aplicar animação</button><button class="btn" id="rxMesclar">Mesclar por id</button><button class="btn" id="rxExemplo">Exemplo: descarga</button><button class="btn" id="rxExemplo2">Exemplo: prédio (2 partes)</button><button class="btn" id="rxExemplo3">Exemplo: furacão (biblioteca)</button></div>'
     + '<span class="msg" id="rxMsg"></span>'
     + '<h2 style="margin-top:14px">Blocos</h2><div class="row" style="margin-bottom:8px"><button class="btn" id="rxGravarTodos">Gravar todos os blocos (para conferir)</button></div>'
     + '<p class="note" id="rxVazio" hidden>Este roteiro ainda não tem animação. Use o formato “Raio-X” no gerador de prompt.</p>'
@@ -733,6 +771,7 @@ RX.montarUI = function(host){
   host.querySelector('#rxGravarTodos').addEventListener('click', gravarTodos);
   host.querySelector('#rxMesclar').addEventListener('click', () => aplicarTexto('mesclar'));
   host.querySelector('#rxExemplo').addEventListener('click', () => { if(window.RAIOX_EXEMPLO) E.carregar(JSON.parse(JSON.stringify(window.RAIOX_EXEMPLO))); });
+  host.querySelector('#rxExemplo3').addEventListener('click', () => { if(window.RAIOX_EXEMPLO_FURACAO) E.carregar(JSON.parse(JSON.stringify(window.RAIOX_EXEMPLO_FURACAO))); });
   host.querySelector('#rxExemplo2').addEventListener('click', async () => {
     const ex = window.RAIOX_EXEMPLO_PREDIO; if(!ex) return;
     ui.dur.value = '60'; ui.tema.value = ex[0].titulo || '';
@@ -748,6 +787,8 @@ RX.montarUI = function(host){
   drop.addEventListener('dragleave', () => { drop.style.background = ''; });
   drop.addEventListener('drop', e => { e.preventDefault(); drop.style.background = ''; lerArquivos([...(e.dataTransfer.files || [])]); });
   host.querySelector('#rxAdd').addEventListener('click', adicionarParte);
+  const pipCk = host.querySelector('#rxPip'); pipCk.checked = RX.pipLigado(); pipCk.addEventListener('change', () => { RX.pipDefinir(pipCk.checked); if(E.refazer) E.refazer(); });
+  const painel = host.parentElement; if(painel && painel.firstChild !== host) painel.insertBefore(host, painel.firstChild);
   preencherPartes(true);
   RX.sincronizarUI(); RX.atualizarAvisos();
 };
@@ -852,7 +893,7 @@ async function aplicarParte(j){
    PROMPT DA IA (formato "explica"), em uma parte só ou em várias partes
    ========================================================= */
 const DURACOES = [[30,'30 segundos'],[60,'1 minuto'],[90,'1 min 30 s'],[120,'2 minutos'],[180,'3 minutos']];
-const nPartes = d => Math.max(1, Math.round(d/36));
+const nPartes = d => Math.max(1, Math.round(d/60));
 function catalogo(){ try{ return E.catalogo ? E.catalogo() : {}; }catch(e){ return {}; } }
 // resumo do que já existe no vídeo, para a IA reaproveitar em vez de recriar
 function estadoResumo(){
@@ -864,14 +905,14 @@ function estadoResumo(){
 }
 RX.prompt = function(tema, cat, op){
   cat = (cat && cat.ACOES) ? cat : catalogo(); op = op || {};
-  const total = op.total || 1, parte = op.parte || 1, multi = total > 1, ultima = parte === total, dur = op.dur || 36;
+  const total = op.total || 1, parte = op.parte || 1, multi = total > 1, ultima = parte === total, dur = op.dur || 60;
   const acoes = Object.keys(cat.ACOES || {}).join(', '), sons = Object.keys(cat.SONS || {}).join(', '), climas = Object.keys(cat.CLIMAS || {}).join(', ');
   const pre = multi ? 'p'+parte+'b' : 'b';
   const L = [];
-  L.push('Você é o roteirista e diretor de animação do canal "Por Dentro do Óbvio", no formato RAIO-X: o Zuco, um alienígena curioso, explica COMO UMA COISA FUNCIONA enquanto uma animação 3D low poly mostra o mecanismo atrás dele. O Zuco aparece pequeno no canto da tela, falando.');
+  L.push('Você é o roteirista e diretor de animação de vídeos explicativos no formato RAIO-X: um NARRADOR curioso e bem-humorado explica COMO UMA COISA FUNCIONA enquanto uma animação 3D low poly mostra o mecanismo. '+(RX.pipLigado() ? 'O narrador aparece pequeno no canto da tela, falando.' : 'O narrador só se ouve; a tela é toda da animação.'));
   if(multi){
     L.push('', 'O vídeo completo terá cerca de '+Math.round(dur*total)+' segundos e é feito em '+total+' PARTES de uns '+dur+' segundos. Você entrega UMA parte por vez. Esta é a PARTE '+parte+' DE '+total+'.');
-  } else L.push('', 'Este vídeo tem 30 a 45 segundos.');
+  } else L.push('', 'Este vídeo tem '+Math.round(dur)+' segundos, em uma parte só.');
   L.push('', 'O PALCO É FIXO (muito importante)',
 'O vídeo inteiro acontece no MESMO CENÁRIO, como nos vídeos de construção que fazem sucesso: o fundo, o chão e o objeto principal ficam sempre no mesmo lugar e a câmera fica ao redor dele. De bloco em bloco mudam só os ELEMENTOS: peças que surgem, se abrem, se mexem, mudam de cor, e partes novas que são acrescentadas ao objeto principal. Nada de trocar de cenário.',
 'Conte em vai e vem, assim: mostre o objeto → "para isso funcionar precisamos de X" → mostre X por dentro → "mas sem Y isso dá errado" (mostre falhando: vibra, fica vermelho, cai, vaza) → entra Y → agora funciona → e assim por diante. Cada problema é resolvido pela peça seguinte, e o objeto principal vai ficando completo.');
@@ -884,14 +925,14 @@ RX.prompt = function(tema, cat, op){
   }
   if(multi && parte === 1) L.push('', 'Nesta primeira parte, monte o cenário e o objeto principal, defina TODAS as peças e elementos que serão base do vídeo (as partes seguintes vão reaproveitá-los) e entregue também o "plano" com o que cada parte cobre, sem repetir conteúdo entre as partes.');
   L.push('', 'ROTEIRO (campo "falas")',
-'- Só o Zuco fala ("quem":"mascote"). Português do Brasil, coloquial, frases curtas fáceis de falar em voz alta; números por extenso, sem siglas nem símbolos.',
+'- Só o narrador fala ("quem":"mascote"; esse é o nome técnico do campo). Português do Brasil, coloquial, frases curtas fáceis de falar em voz alta; números por extenso, sem siglas nem símbolos.',
 '- '+(multi ? '7 a 10' : '6 a 9')+' falas, cada uma com 8 a 16 palavras, e cada fala é UM BLOCO de animação de 3 a 6 segundos. Uma ideia por bloco.',
 (parte === 1 ? '- O primeiro bloco é o gancho: uma pergunta ou uma afirmação surpreendente sobre o assunto.' : '- Continue a história de onde parou.')+(ultima ? ' O último bloco fecha com a conclusão que responde à pergunta do vídeo.' : ' Esta parte NÃO conclui o vídeo: termine com um gancho que leva à próxima parte.'),
-'- Tom: explicação de verdade, com humor leve do Zuco, sem aula. Nada que seja falso: se não tiver certeza de um fato, deixe-o de fora.',
-'- Cada fala tem "bloco":"<id do bloco>" e pode ter "acao" (expressão do Zuco; opcional): '+acoes+'.',
+'- Tom: explicação de verdade, com humor leve, sem aula. Nada que seja falso: se não tiver certeza de um fato, deixe-o de fora.',
+'- Cada fala tem "bloco":"<id do bloco>" e pode ter "acao" (expressão do apresentador no canto; opcional e só faz efeito se ele estiver ligado): '+acoes+'.',
 '',
 'ANIMAÇÃO (campo "animacao")',
-'Mundo 3D em metros. Eixo Y é para cima, o chão é y=0, x é para a direita e z vem em direção à câmera. A tela é vertical (9:16): o objeto principal deve ser grande, ocupar cerca de metade da altura da tela, e o canto inferior esquerdo fica coberto pelo Zuco.',
+'Mundo 3D em metros. Eixo Y é para cima, o chão é y=0, x é para a direita e z vem em direção à câmera. A tela é vertical (9:16): o objeto principal deve ser grande, ocupar cerca de metade da altura da tela, e '+(RX.pipLigado() ? 'o canto inferior esquerdo fica coberto pelo apresentador.' : 'deixe livre a faixa de baixo, onde aparece a legenda.'),
 'Estrutura: {'+(parte === 1 ? '"ambiente":{...},"palco":{...},' : '')+'"pecas":{...},"elementos":[...],"blocos":[...]}',
 '',
 'REGRAS VISUAIS (para a imagem ficar clara)',
@@ -899,17 +940,21 @@ RX.prompt = function(tema, cat, op){
 '- Para mostrar camadas ou o interior, AFASTE as peças com "mover" (vista explodida) em vez de empilhar vidros. Cada peça tem uma forma reconhecível (não use só caixas finas).',
 '- Dê a cada elemento importante um rótulo curto quando ele entra em cena.',
 '',
-'1) PEÇAS: objetos feitos de formas simples, escritos em JSON (nada de código). Ex.: "tanque":{"partes":[{"nome":"casca","forma":"caixa","tam":[1,.7,.34],"cor":"#4f9fd6","vidro":.35},{"nome":"agua","forma":"liquido","base":"caixa","tam":[.92,.62,.28],"pos":[0,-.31,0],"nivel":.8},{"nome":"boia","forma":"esfera","raio":.1,"pos":[.3,.15,0],"cor":"#ff9f43"}],"ancoras":{"saida":[0,-.33,0]}}',
+'1) BIBLIOTECA DE OBJETOS (USE ESTA PRIMEIRO). Já existem objetos 3D prontos, com textura e animações. Para usar um, crie um elemento com "lib" e, se quiser, "params": {"id":"casa","lib":"casa_corte","params":{"material":"tijolo"},"pos":[0,0,0]}. Para animar, use o verbo "anim": {"faz":"anim","alvo":"casa","nome":"voar_telhado","em":1,"dur":2}. Animações marcadas com * ficam repetindo (valem até o fim do bloco ou até "dur"). Animações com [argumento] aceitam "args": {"faz":"anim","alvo":"turbina","nome":"girar","args":{"velocidade":3}}. As partes de cada objeto são alvos normais: "casa.telhado", "casa.vidro" (para cor, destacar, esconder, rotulo etc.). Todos os objetos ficam com a base em y=0 e o centro em x=0, z=0, e as medidas abaixo são em metros: use "esc" no elemento para ficarem proporcionais entre si. Prefira SEMPRE os objetos da biblioteca; só crie peças próprias (item 2) para o que realmente não existir nela.',
+'FORMATO: id | o que é | tamanho LxAxP | partes | params (padrão) | anims',
+((window.RAIOX_LIB && window.RAIOX_LIB.catalogoCompacto) ? window.RAIOX_LIB.catalogoCompacto() : '(biblioteca não carregada)'),
+'',
+'2) PEÇAS PRÓPRIAS (só para o que não existe na biblioteca): objetos feitos de formas simples, escritos em JSON (nada de código). Ex.: "tanque":{"partes":[{"nome":"casca","forma":"caixa","tam":[1,.7,.34],"cor":"#4f9fd6","vidro":.35},{"nome":"agua","forma":"liquido","base":"caixa","tam":[.92,.62,.28],"pos":[0,-.31,0],"nivel":.8},{"nome":"boia","forma":"esfera","raio":.1,"pos":[.3,.15,0],"cor":"#ff9f43"}],"ancoras":{"saida":[0,-.33,0]}}',
 'Formas: caixa (tam [largura,altura,profundidade]), cilindro (raio, alt, raio_topo opcional), esfera (raio), cone (raio, alt), anel (raio, espessura), tubo (pontos [[x,y,z],...], raio), liquido (base "caixa" com tam, ou "cilindro" com raio e alt; "nivel" de 0 a 1; a origem fica no fundo), nuvem (raio).',
 'Campos de cada parte: nome (obrigatório), forma, pos [x,y,z], rot [graus x,y,z], esc, cor "#rrggbb", vidro (transparência de 0,25 a 1), brilho (0 a 1). Cada parte pode ser animada pelo nome "elemento.parte".',
 '',
-'2) ELEMENTOS: instâncias no mundo. {"id":"tanque","peca":"tanque","pos":[0,1.5,-.5],"rot":[0,0,0],"esc":1}. Também dá para usar uma forma direto: {"id":"cano","tipo":"tubo","pontos":[...],"raio":.06}. '+(multi ? 'No máximo 10 elementos NOVOS por parte.' : 'No máximo 10 elementos.')+' Todo elemento ganha âncoras automáticas: topo, base, centro, esq, dir, frente, fundo (use como "tanque.topo").'+(parte > 1 ? ' IMPORTANTE: todo elemento novo desta parte precisa entrar com "mostrar" ou "crescer" no bloco certo (senão ele já aparece nas partes anteriores).' : ' Elementos que só entram mais tarde devem ser revelados com "mostrar" ou "crescer" no bloco certo.'),
+'3) ELEMENTOS: instâncias no mundo. Objeto da biblioteca: {"id":"casa","lib":"casa_corte","params":{},"pos":[0,0,0],"rot":[0,0,0],"esc":1}. Peça própria: {"id":"tanque","peca":"tanque","pos":[0,1.5,-.5],"rot":[0,0,0],"esc":1}. Também dá para usar uma forma direto: {"id":"cano","tipo":"tubo","pontos":[...],"raio":.06}. '+(multi ? 'No máximo 10 elementos NOVOS por parte.' : 'No máximo 10 elementos.')+' Todo elemento ganha âncoras automáticas: topo, base, centro, esq, dir, frente, fundo (use como "tanque.topo").'+(parte > 1 ? ' IMPORTANTE: todo elemento novo desta parte precisa entrar com "mostrar" ou "crescer" no bloco certo (senão ele já aparece nas partes anteriores).' : ' Elementos que só entram mais tarde devem ser revelados com "mostrar" ou "crescer" no bloco certo.'),
 '',
-'3) BLOCOS: {"id":"'+pre+'1","camera":{...},"transicao":{"tipo":"fade"},"acoes":[...]}. Cada bloco tem a câmera e as ações daquele pedaço da fala. Use ids '+(multi ? 'únicos, começando com "'+pre+'" ('+pre+'1, '+pre+'2, ...)' : 'b1, b2, ...')+'.',
-'CÂMERA: orbita em volta de um alvo. '+(parte === 1 ? 'Defina "palco" (a câmera principal, que mostra o objeto inteiro): {"alvo":"monitor","dist":4.5,"alt":.6,"azim":0}. ' : '')+'Em cada bloco use só VARIAÇÕES PEQUENAS em torno do palco: {"base":true} volta ao palco, {"zoom":1.4} aproxima (2 no máximo), "azim" entre -35 e 35, "alvo" pode ser um elemento ou uma âncora ("tanque.boia") para olhar uma peça, e para mover use os mesmos campos com _fim (zoom_fim, azim_fim, alvo_fim) ou "movimento":"aproximar" | "afastar" | "orbitar" | "subir". Faça no máximo 2 close-ups fortes por parte e volte ao palco depois. O que faltar herda do bloco anterior. "transicao" é opcional: "corte" (padrão), "fade" ou "flash".',
+'4) BLOCOS: {"id":"'+pre+'1","camera":{...},"transicao":{"tipo":"fade"},"acoes":[...]}. Cada bloco tem a câmera e as ações daquele pedaço da fala. Use ids '+(multi ? 'únicos, começando com "'+pre+'" ('+pre+'1, '+pre+'2, ...)' : 'b1, b2, ...')+'.',
+'CÂMERA: orbita em volta de um alvo. '+(parte === 1 ? 'Defina "palco" (a câmera principal, que mostra o objeto inteiro): {"alvo":"monitor","dist":4.5,"alt":.6,"azim":0}. ATENÇÃO: a tela é vertical e a largura visível é só cerca de 0,43 da distância; para o conjunto inteiro caber, use dist ≈ 2,7 × a largura do conjunto (ex.: conjunto de 6 m de largura → dist 16) e alvo na altura do meio do conjunto. ' : '')+'Em cada bloco use só VARIAÇÕES PEQUENAS em torno do palco: {"base":true} volta ao palco, {"zoom":1.4} aproxima (2 no máximo), "azim" entre -35 e 35, "alvo" pode ser um elemento ou uma âncora ("tanque.boia") para olhar uma peça, e para mover use os mesmos campos com _fim (zoom_fim, azim_fim, alvo_fim) ou "movimento":"aproximar" | "afastar" | "orbitar" | "subir". Faça no máximo 2 close-ups fortes por parte e volte ao palco depois. O que faltar herda do bloco anterior. "transicao" é opcional: "corte" (padrão), "fade" ou "flash".',
 '',
 'AÇÕES (cada uma: "em" = quando começa, "dur" = duração em segundos, "alvo" = elemento ou "elemento.parte", "faz" = o verbo)',
-'- "em": segundos depois do começo da fala (ex. 0.5), ou {"palavra":4} para começar exatamente quando a quinta palavra da fala é dita (a primeira é a 0), ou {"palavra":"despenca"} pela própria palavra. Use isso para sincronizar com o que o Zuco diz.',
+'- "em": segundos depois do começo da fala (ex. 0.5), ou {"palavra":4} para começar exatamente quando a quinta palavra da fala é dita (a primeira é a 0), ou {"palavra":"despenca"} pela própria palavra. Use isso para sincronizar com o que o narrador diz.',
 '- mostrar / esconder: aparece ou some. crescer: o elemento brota do chão (ou da base) com a base parada, bom para construir (só em elementos que não se mexeram antes).',
 '- mover: {"faz":"mover","alvo":"x","delta":[0,-.4,0]} (relativo) ou "para":[x,y,z] (absoluto).',
 '- girar: {"faz":"girar","alvo":"x","eixo":"z","graus":40}; girar_continuo: {"faz":"girar_continuo","alvo":"x","eixo":"y","vel":180,"dur":3}.',
@@ -928,7 +973,7 @@ RX.prompt = function(tema, cat, op){
   } else {
     L.push('{"parte":'+parte+',"total":'+total+',"falas":[{"quem":"mascote","texto":"...","bloco":"'+pre+'1"}],"animacao":{"pecas":{"so as novas":{}},"elementos":[{"so os novos":1}],"blocos":[{"id":"'+pre+'1","camera":{"base":true},"acoes":[]}]}'+(ultima ? ',"publicacao":{"youtube_titulo":"...","youtube_descricao":"...","tiktok":"...","instagram":"...","hashtags":["..."]},"verificar":["fato 1"]' : ',"verificar":["fato 1"]')+'}');
   }
-  if(ultima) L.push('- publicacao (do vídeo COMPLETO): título do YouTube até 70 caracteres com emoji, terminando com #shorts; descrição com 2 ou 3 frases e, na última linha, exatamente: "Animação e vozes feitas com ajuda de inteligência artificial."; hashtags de 4 a 6 em minúsculas, incluindo pordentrodoobvio.');
+  if(ultima) L.push('- publicacao (do vídeo COMPLETO): título do YouTube até 70 caracteres com emoji, terminando com #shorts; descrição com 2 ou 3 frases e, na última linha, exatamente: "Animação e vozes feitas com ajuda de inteligência artificial."; hashtags de 4 a 6 em minúsculas, e uma hashtag do assunto.');
   const slug = String(tema || 'video').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'video';
   L.push('- ENTREGA: se você puder criar arquivos, entregue o JSON como ARQUIVO para download chamado exatamente "raiox-'+slug+'-parte-'+parte+'-de-'+total+'.json" e escreva só uma frase no chat. Se não puder criar arquivos, responda com o JSON em texto.');
   L.push('- verificar: cada afirmação factual desta parte que uma pessoa deve conferir antes de publicar (no máximo 6).', '', 'TEMA: '+(tema && tema.trim() ? tema.trim() : '[escreva o tema aqui]'));

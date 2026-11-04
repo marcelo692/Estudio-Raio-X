@@ -197,6 +197,19 @@ LIB.reset = function(partes){
     const e = mt.userData.e; if(e && mt.emissive){ mt.emissive.copy(e.c); mt.emissiveIntensity = e.i; }
   }); });
 };
+
+// catálogo compacto para o prompt (uma linha por objeto); calculado uma vez
+let _cat = null;
+LIB.catalogoCompacto = function(){
+  if(_cat) return _cat;
+  _cat = LIB.ordem.map(id => {
+    const d = LIB.itens[id], r = LIB.construir(id);
+    const ps = Object.keys(d.params || {}).map(k => { const p = d.params[k]; return k+'='+JSON.stringify(p.padrao)+(p.opcoes ? '('+p.opcoes.join('|')+')' : ''); }).join(', ');
+    const an = Object.keys(d.animacoes).map(n => { const a = d.animacoes[n], m = /args\.(\w+)/.exec(a.desc || ''); return n+(a.loop ? '*' : '')+(m ? '['+m[1]+']' : ''); }).join(', ');
+    return id+' | '+d.descricao.replace(/\s+/g, ' ')+' | '+r.dim.map(v => +v.toFixed(1)).join('x')+' m | partes: '+Object.keys(r.partes).join(',')+(ps ? ' | params: '+ps : '')+' | anims: '+an;
+  }).join('\n');
+  return _cat;
+};
 // resumo para o prompt da IA
 LIB.catalogo = function(){
   return LIB.ordem.map(id => {
