@@ -13,7 +13,7 @@
    Formato do "animacao" (resumo; o manual completo está no AGENTS.md e no prompt do formato "explica"):
    {
      "ambiente": {"fundo":[topo,meio,horizonte,brilho], "chao":"#e9dfcc"},
-     "layout":   {"pip":{"x":.035,"y":.60,"w":.36}, "legenda":54},
+     "layout":   {"pip":{"x":.03,"y":.63,"w":.36}, "legenda":54},
      "pecas":    {"nome": {"partes":[{"nome","forma","tam"|"raio"/"alt","pos","rot","cor","vidro","brilho"}], "ancoras":{"x":[0,0,0]}}},
      "elementos":[{"id","peca"|"tipo","pos","rot","esc","oculto"}],
      "blocos":   [{"id","camera":{...},"transicao":{...},"acoes":[{"em","dur","alvo","faz",...}]}]
@@ -48,7 +48,7 @@ let nos = {}, elems = {};                   // nós animáveis ("id" e "id.parte
 let efeitos = [], blocos = [], trilhas = {}, pulsos = [], giros = [];
 let tlRef = null;                           // timeline usada na última compilação
 let ligado = false, salvo = null;
-let layout = {pip:{x:.035, y:.60, w:.36}, legenda:54};
+let layout = {pip:{x:.03, y:.63, w:.36}, legenda:54};
 let quadro = null;                          // câmera padrão (enquadra tudo)
 const avisos = new Set();
 const avisar = m => { avisos.add(m); };
@@ -160,7 +160,7 @@ function limparMundo(){
 function montar(a){
   limparMundo(); anim = a;
   const amb = a.ambiente || {};
-  layout = {pip: Object.assign({x:.035, y:.60, w:.36}, (a.layout || {}).pip || {}), legenda: num((a.layout || {}).legenda, 54)};
+  layout = {pip: Object.assign({x:.03, y:.63, w:.36}, (a.layout || {}).pip || {}), legenda: num((a.layout || {}).legenda, 54)};
   // chão
   const fl = new T3.Mesh(new T3.CircleGeometry(40, 48), new T3.MeshStandardMaterial({color: amb.chao || '#d8c7a3', flatShading:true, roughness:1}));
   fl.rotation.x = -Math.PI/2; fl.receiveShadow = true; fl.userData.chao = true; mundo.add(fl); floor = fl;
@@ -546,11 +546,13 @@ RX.pip = function(R){
   const sc = E.scene, zu = E.zuco, bg = sc.background, fog = sc.fog, hs = E.SCENES.raiox.g.visible;
   R.setRenderTarget(null);
   R.setScissorTest(true); R.setViewport(x, gy, r.w, r.h); R.setScissor(x, gy, r.w, r.h);
-  sc.background = pipCor; sc.fog = null; E.SKY.visible = false; E.SCENES.raiox.g.visible = false; zu.g.visible = true;
+  // fundo transparente: não limpa a cor, só a profundidade; o Zuco é desenhado direto por cima do mundo
+  const ac = R.autoClear; R.autoClear = false; R.clearDepth();
+  sc.background = null; sc.fog = null; E.SKY.visible = false; E.SCENES.raiox.g.visible = false; zu.g.visible = true;
   pipCam.aspect = r.w/r.h; pipCam.updateProjectionMatrix();
   const p = zu.g.position;
-  pipCam.position.set(p.x + .55, p.y + .16, p.z + 2.7); pipCam.lookAt(p.x - .02, p.y + .0, p.z);
-  R.render(sc, pipCam);
+  pipCam.position.set(p.x + .35, p.y + .12, p.z + 1.9); pipCam.lookAt(p.x - .01, p.y + .0, p.z);
+  R.render(sc, pipCam); R.autoClear = ac;
   zu.g.visible = false; sc.background = bg; sc.fog = fog; E.SKY.visible = true; E.SCENES.raiox.g.visible = hs;
   R.setScissorTest(false); R.setViewport(0, 0, sz.x, sz.y);
 };
@@ -558,10 +560,7 @@ RX.pip = function(R){
 RX.overlay = function(ctx, ox, oy, vw, vh, U, st){
   if(!ligado) return;
   const r = pipRect(vw, vh), x = ox + r.x, y = oy + r.y;
-  ctx.save();
-  ctx.lineWidth = 8*U; ctx.strokeStyle = '#ffffff'; ctx.strokeRect(x, y, r.w, r.h);
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y + r.h - 38*U, 118*U, 38*U);
-  ctx.fillStyle = '#3b3560'; ctx.font = '900 '+(24*U)+'px '+SANS; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('ZUCO', x + 12*U, y + r.h - 18*U);
+  ctx.save(); // sem moldura: o Zuco fica solto sobre a animação
   const t = st && st.t != null ? st.t : 0, rec = blocoEm(t);
   if(rec && rec.trans && rec.trans.tipo && rec.trans.tipo !== 'corte'){
     const d = Math.max(.1, num(rec.trans.dur, .35)), q = (t - rec.t0)/d;
