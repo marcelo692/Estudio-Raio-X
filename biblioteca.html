@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Biblioteca de objetos · Estúdio Raio-X</title>
+<style>
+:root{--bg:#14181f;--pn:#1c222c;--ln:#2c3544;--tx:#e8edf5;--mu:#93a0b4;--ok:#3fbf78;--aj:#e8b13a;--rj:#e5565b;--ac:#4b8dff}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,Segoe UI,sans-serif;display:grid;grid-template-columns:300px 1fr 330px;grid-template-rows:auto 1fr}
+header{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--ln);background:var(--pn)}
+header h1{font-size:16px;margin:0}header .mu{color:var(--mu);font-size:12px}header a{color:var(--ac);text-decoration:none;font-size:13px}
+#lista{overflow:auto;border-right:1px solid var(--ln);background:var(--pn);padding:8px}
+.lote{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:12px 6px 6px}
+.item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;padding:6px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.item:hover{background:#232b38}.item.sel{background:#263044;border-color:var(--ac)}
+.item img{width:56px;height:56px;border-radius:8px;background:#0f131a;object-fit:cover}
+.item b{display:block;font-size:13px}.item small{color:var(--mu)}
+.tag{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--ln);color:var(--mu)}
+.tag.ok{color:var(--ok);border-color:var(--ok)}.tag.aj{color:var(--aj);border-color:var(--aj)}.tag.rj{color:var(--rj);border-color:var(--rj)}
+#centro{position:relative;min-width:0}#cv{width:100%;height:100%;display:block}
+#hud{position:absolute;left:12px;top:10px;font-size:12px;color:var(--mu);pointer-events:none;text-shadow:0 1px 2px #000}
+#barra{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button,select,input,textarea{font:inherit;color:var(--tx);background:#252d3b;border:1px solid var(--ln);border-radius:8px;padding:6px 10px}
+button{cursor:pointer}button:hover{background:#2d3748}button.on{background:var(--ac);border-color:var(--ac)}
+#lado{overflow:auto;border-left:1px solid var(--ln);background:var(--pn);padding:12px}
+#lado h2{font-size:15px;margin:0 0 4px}#lado p{margin:4px 0 10px;color:var(--mu);font-size:12.5px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1}
+.par{display:grid;grid-template-columns:1fr 1.2fr;gap:6px;align-items:center;margin:4px 0;font-size:12.5px}.par label{color:var(--mu)}
+.par input[type=color]{padding:0;height:30px;width:100%}.par input[type=number],.par input[type=text],.par select{width:100%}
+textarea{width:100%;min-height:110px;resize:vertical}
+.bt{padding:9px 6px}.bt.ok{border-color:var(--ok);color:var(--ok)}.bt.aj{border-color:var(--aj);color:var(--aj)}.bt.rj{border-color:var(--rj);color:var(--rj)}
+.bt.ok.on{background:var(--ok);color:#06210f}.bt.aj.on{background:var(--aj);color:#2a1d00}.bt.rj.on{background:var(--rj);color:#2b0507}
+#msg{font-size:12px;color:var(--mu);min-height:16px}
+h3{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px}
+@media(max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 220px 60vh auto}#lista,#lado{border:0}header{grid-column:1}}
+</style></head><body>
+<header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><a href="index.html">← voltar ao estúdio</a></header>
+<aside id="lista"></aside>
+<main id="centro"><canvas id="cv"></canvas><div id="hud"></div>
+  <div id="barra"><button id="bGirar" class="on">Girar</button><button id="bRegua">Régua 1 m</button><button id="bPanorama">Ver todos lado a lado</button><button id="bRepouso">Repouso</button><span id="anims" style="display:contents"></span></div></main>
+<aside id="lado"><div id="info"></div></aside>
+<script src="lib/three.min.js"></script><script src="lib/OrbitControls.js"></script>
+<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script>
+<script>
+const LIB = window.RAIOX_LIB, T = THREE, $ = id => document.getElementById(id);
+const estado = {sel:null, params:{}, cena:null, anim:null, relogio:0, giro:true, regua:false, pano:false, val:{}};
+/* ---------- renderer / cena ---------- */
+const cv = $('cv'), R = new T.WebGLRenderer({canvas:cv, antialias:true, preserveDrawingBuffer:true});
+R.shadowMap.enabled = true; R.setPixelRatio(Math.min(2, devicePixelRatio));
+const cena = new T.Scene(); cena.background = new T.Color('#2a3446');
+const cam = new T.PerspectiveCamera(36, 1, .05, 200), ctl = new T.OrbitControls(cam, cv); ctl.enableDamping = true;
+cena.add(new T.HemisphereLight('#f4f7ff', '#8a8f99', .75));
+const sol = new T.DirectionalLight('#fff1dc', .85); sol.position.set(4, 7, 5); sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048);
+Object.assign(sol.shadow.camera, {left:-8, right:8, top:8, bottom:-8, near:.5, far:30}); cena.add(sol);
+const chao = new T.Mesh(new T.CircleGeometry(30, 48), new T.MeshStandardMaterial({color:'#39465c', roughness:1})); chao.rotation.x = -Math.PI/2; chao.position.y = -.002; chao.receiveShadow = true; cena.add(chao);
+const grade = new T.GridHelper(30, 30, '#566580', '#44526a'); grade.position.y = 0; grade.material.opacity = .35; grade.material.transparent = true; cena.add(grade);
+const palco = new T.Group(); cena.add(palco);
+function ajusta(){ const r = cv.parentElement.getBoundingClientRect(); R.setSize(r.width, r.height, false); cam.aspect = r.width/r.height; cam.updateProjectionMatrix(); }
+addEventListener('resize', ajusta);
+/* ---------- objetos ---------- */
+let atual = null;
+function limpa(){ while(palco.children.length) palco.remove(palco.children[0]); atual = null; }
+function enquadra(dim, centro){
+  const h = dim[1], l = Math.max(dim[0], dim[2]), d = Math.max(h*1.6, l*1.5, 2.2);
+  ctl.target.set(centro ? centro[0] : 0, h*.45, centro ? centro[2] : 0); cam.position.set(ctl.target.x + d*.7, h*.7 + d*.35, ctl.target.z + d*.9); ctl.update();
+}
+function mostra(id){
+  estado.pano = false; $('bPanorama').classList.remove('on'); limpa();
+  atual = LIB.construir(id, estado.params); if(!atual) return;
+  palco.add(atual.obj); enquadra(atual.dim); estado.anim = null; estado.relogio = 0; regua();
+  $('hud').textContent = atual.def.nome+' · '+atual.dim.map(v => v.toFixed(1)).join(' × ')+' m (l × a × p)';
+}
+let reguaObj = null;
+function regua(){
+  if(reguaObj){ cena.remove(reguaObj); reguaObj = null; } if(!estado.regua || !atual) return;
+  const g = new T.Group(), m = new T.MeshBasicMaterial({color:'#ffd60a'}), x = -(atual.dim[0]/2 + .5);
+  const barra = new T.Mesh(new T.BoxGeometry(.03, 1, .03), m); barra.position.set(x, .5, 0); g.add(barra);
+  for(let i = 0; i <= 10; i++){ const t = new T.Mesh(new T.BoxGeometry(i%5 === 0 ? .2 : .1, .012, .012), m); t.position.set(x + .05, i/10, 0); g.add(t); }
+  cena.add(g); reguaObj = g;
+}
+function panorama(){
+  estado.pano = true; limpa(); let x = 0; const itens = LIB.ordem.map(id => LIB.construir(id)).filter(Boolean), gap = .8, ext = [];
+  itens.forEach(it => { const w = Math.max(it.dim[0], it.dim[2]); x += w/2; it.obj.position.x = x; palco.add(it.obj); x += w/2 + gap; ext.push(it.dim[1]); });
+  const total = x - gap; palco.position.x = -total/2; const h = Math.max(...ext);
+  ctl.target.set(0, h*.4, 0); cam.position.set(0, h*.8, Math.max(total*.62, 6)); ctl.update(); $('hud').textContent = 'Panorama · '+itens.length+' objetos na mesma escala (1 m = 1 quadrado da grade)'; estado.anim = null;
+}
+/* ---------- animações ---------- */
+function botoesAnim(){
+  const box = $('anims'); box.innerHTML = ''; if(!atual) return;
+  Object.keys(atual.def.animacoes).forEach(n => { const a = atual.def.animacoes[n], b = document.createElement('button'); b.textContent = '▶ '+n+(a.loop ? ' ∞' : ''); b.title = a.desc; b.onclick = () => { estado.anim = {n, t0:performance.now()/1000}; }; box.appendChild(b); });
+}
+function quadro(){
+  requestAnimationFrame(quadro); ctl.autoRotate = estado.giro && !estado.anim && !estado.pano; ctl.autoRotateSpeed = 1.2; ctl.update();
+  if(atual && !estado.pano){
+    LIB.reset(atual.partes);
+    if(estado.anim){ const a = atual.def.animacoes[estado.anim.n], t = performance.now()/1000 - estado.anim.t0; if(a){ if(a.loop || t < a.dur + .6){ a.aplicar(atual.partes, a.loop ? t : Math.min(t, a.dur), {}, atual.obj); } else { a.aplicar(atual.partes, a.dur, {}, atual.obj); } } }
+  }
+  R.render(cena, cam);
+}
+/* ---------- miniaturas ---------- */
+function miniaturas(){
+  const rt = new T.WebGLRenderTarget(160, 160), out = {}; const c2 = document.createElement('canvas'); c2.width = c2.height = 160; const x2 = c2.getContext('2d');
+  LIB.ordem.forEach(id => {
+    limpa(); const it = LIB.construir(id); palco.add(it.obj); const d = Math.max(it.dim[1]*1.7, Math.max(it.dim[0], it.dim[2])*1.6, 2);
+    const c = new T.PerspectiveCamera(36, 1, .05, 100); c.position.set(d*.75, it.dim[1]*.7 + d*.3, d*.95); c.lookAt(0, it.dim[1]*.42, 0);
+    const buf = new Uint8Array(160*160*4); R.setRenderTarget(rt); R.render(cena, c); R.readRenderTargetPixels(rt, 0, 0, 160, 160, buf); R.setRenderTarget(null);
+    const im = x2.createImageData(160, 160); for(let y = 0; y < 160; y++) for(let x = 0; x < 160; x++){ const a = ((159 - y)*160 + x)*4, b = (y*160 + x)*4; im.data[b] = buf[a]; im.data[b+1] = buf[a+1]; im.data[b+2] = buf[a+2]; im.data[b+3] = 255; }
+    x2.putImageData(im, 0, 0); out[id] = c2.toDataURL('image/jpeg', .85);
+  });
+  limpa(); return out;
+}
+/* ---------- lista e painel ---------- */
+let thumbs = {};
+const ROT = {ok:'aprovado', aj:'ajustar', rj:'rejeitado'};
+function resumo(){ const v = Object.values(estado.val), n = k => v.filter(x => x.estado === k).length; $('resumo').textContent = LIB.ordem.length+' objetos · '+n('ok')+' aprovados · '+n('aj')+' para ajustar · '+n('rj')+' rejeitados'; }
+function lista(){
+  const el = $('lista'); el.innerHTML = ''; let lote = null;
+  LIB.ordem.forEach(id => {
+    const d = LIB.itens[id]; if(d.lote !== lote){ lote = d.lote; const h = document.createElement('div'); h.className = 'lote'; h.textContent = 'Lote '+lote; el.appendChild(h); }
+    const v = estado.val[id], it = document.createElement('div'); it.className = 'item'+(estado.sel === id ? ' sel' : ''); it.dataset.id = id;
+    it.innerHTML = '<img alt=""><div><b></b><small></small></div><span class="tag"></span>';
+    it.querySelector('img').src = thumbs[id] || ''; it.querySelector('b').textContent = d.nome; it.querySelector('small').textContent = d.categoria;
+    const tg = it.querySelector('.tag'); tg.textContent = v ? ROT[v.estado] : 'pendente'; if(v) tg.classList.add(v.estado);
+    it.onclick = () => selecionar(id); el.appendChild(it);
+  }); resumo();
+}
+function selecionar(id){
+  estado.sel = id; const d = LIB.itens[id]; estado.params = Object.assign(d.defaults(), (estado.val[id] && estado.val[id].params) || {}); mostra(id); botoesAnim(); painel(); lista();
+}
+function painel(){
+  const d = LIB.itens[estado.sel], v = estado.val[estado.sel] || {}, el = $('info'); if(!d){ el.innerHTML = '<p>Escolha um objeto na lista.</p>'; return; }
+  el.innerHTML = '<h2></h2><p id="ds"></p><h3>Parâmetros</h3><div id="ps"></div><h3>Validação</h3><div class="row"><button class="bt ok">✓ Aprovar</button><button class="bt aj">✎ Ajustar</button><button class="bt rj">✗ Rejeitar</button></div><textarea id="co" placeholder="Comentário para o ajuste (o que está feio, o que falta, o que mudar)…"></textarea><div class="row"><button id="sv">Salvar comentário</button></div><div id="msg"></div><h3>Partes e animações</h3><p id="pa"></p>';
+  el.querySelector('h2').textContent = d.nome; $('ds').textContent = d.descricao; $('co').value = v.comentario || '';
+  const ps = $('ps'); Object.keys(d.params).forEach(k => {
+    const p = d.params[k], val = estado.params[k], row = document.createElement('div'); row.className = 'par'; const lb = document.createElement('label'); lb.textContent = k; lb.title = p.desc || ''; row.appendChild(lb);
+    let inp; if(p.opcoes){ inp = document.createElement('select'); p.opcoes.forEach(o => { const op = document.createElement('option'); op.value = op.textContent = String(o); inp.appendChild(op); }); inp.value = String(val); }
+    else if(typeof p.padrao === 'number'){ inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = val; }
+    else if(typeof p.padrao === 'string' && /^#[0-9a-f]{6}$/i.test(p.padrao)){ inp = document.createElement('input'); inp.type = 'color'; inp.value = val || p.padrao; }
+    else { inp = document.createElement('input'); inp.type = 'text'; inp.value = val || ''; }
+    inp.onchange = () => { estado.params[k] = typeof p.padrao === 'number' ? +inp.value : inp.value; mostra(estado.sel); botoesAnim(); };
+    row.appendChild(inp); ps.appendChild(row);
+  });
+  $('pa').textContent = 'Partes: '+Object.keys(atual.partes).join(', ')+'. Animações: '+Object.keys(d.animacoes).join(', ')+'.';
+  el.querySelectorAll('.bt').forEach((b, i) => { const k = ['ok','aj','rj'][i]; if(v.estado === k) b.classList.add('on'); b.onclick = () => salvar(k); });
+  $('sv').onclick = () => salvar(v.estado || 'aj', true);
+}
+function salvar(est, soComentario){
+  const id = estado.sel, antigo = estado.val[id] || {}, reg = {id, estado: soComentario && !antigo.estado ? 'aj' : est, comentario: $('co').value.trim(), params: estado.params, quando: new Date().toISOString()};
+  estado.val[id] = reg; try{ localStorage.setItem('rx-bib-val', JSON.stringify(estado.val)); }catch(e){}
+  fetch('/api/biblioteca/validacao', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(reg)})
+    .then(r => r.ok ? 'Salvo.' : 'Salvo só neste navegador (o servidor não respondeu).').catch(() => 'Salvo só neste navegador (abra pelo "Abrir estudio.bat").').then(t => { const m = $('msg'); if(m) m.textContent = t; });
+  lista(); painel();
+}
+/* ---------- início ---------- */
+async function iniciar(){
+  ajusta();
+  try{ estado.val = JSON.parse(localStorage.getItem('rx-bib-val') || '{}'); }catch(e){}
+  try{ const r = await fetch('/api/biblioteca/validacao'); if(r.ok){ const j = await r.json(); Object.assign(estado.val, j); } }catch(e){}
+  thumbs = miniaturas(); lista(); selecionar(LIB.ordem[0]); quadro();
+  $('bGirar').onclick = e => { estado.giro = !estado.giro; e.target.classList.toggle('on', estado.giro); };
+  $('bRegua').onclick = e => { estado.regua = !estado.regua; e.target.classList.toggle('on', estado.regua); regua(); };
+  $('bRepouso').onclick = () => { estado.anim = null; };
+  $('bPanorama').onclick = e => { if(estado.pano){ selecionar(estado.sel); } else { panorama(); e.target.classList.add('on'); } };
+}
+iniciar();
+window.__BIB = {estado, selecionar, mostra, panorama, LIB, R, cam, ctl};
+</script></body></html>

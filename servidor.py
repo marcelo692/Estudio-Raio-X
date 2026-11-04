@@ -471,6 +471,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, {"github": True, "local": local, "erro": str(e)})
         if self.path.startswith("/api/postagens"):
             return self._json(200, {"videos": lista_postagens()})
+        if self.path.startswith("/api/biblioteca/validacao"):
+            try:
+                with open(os.path.join(PASTA, "biblioteca", "validacao.json"), encoding="utf-8") as f:
+                    return self._json(200, json.load(f))
+            except Exception:
+                return self._json(200, {})
         if self.path.startswith("/api/padrao"):
             try:
                 with open(os.path.join(PASTA, "padrao.json"), encoding="utf-8") as f:
@@ -527,6 +533,20 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             if self.path.startswith("/api/postagens"):
                 return self._json(200, {"ok": True, "estado": marcar_postagem(json.loads(self._corpo() or b"{}"))})
+            if self.path.startswith("/api/biblioteca/validacao"):
+                d = json.loads(self._corpo() or b"{}")
+                pasta = os.path.join(PASTA, "biblioteca"); os.makedirs(pasta, exist_ok=True)
+                caminho = os.path.join(pasta, "validacao.json")
+                try:
+                    with open(caminho, encoding="utf-8") as f:
+                        todos = json.load(f)
+                except Exception:
+                    todos = {}
+                if d.get("id"):
+                    todos[str(d["id"])] = d
+                with open(caminho, "w", encoding="utf-8") as f:
+                    json.dump(todos, f, ensure_ascii=False, indent=2)
+                return self._json(200, {"ok": True})
             if self.path.startswith("/api/padrao"):
                 d = json.loads(self._corpo() or b"{}")
                 caminho = os.path.join(PASTA, "padrao.json")
