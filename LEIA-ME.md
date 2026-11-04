@@ -69,3 +69,9 @@ O prompt agora pede que a IA entregue cada parte como **arquivo** (`raiox-<tema>
 
 ## Biblioteca de objetos
 Abra "🧱 Biblioteca" no topo do estúdio (ou `http://localhost:8766/biblioteca.html`) para ver os objetos 3D, testar as animações e marcar Aprovar / Ajustar / Rejeitar com comentário. O prompt do estúdio já lista todos os objetos: a IA monta o vídeo chamando-os pelo nome.
+
+## Linha do tempo e ajuste por cena
+- Embaixo do player há uma faixa com todas as cenas (largura = duração). Clique para ir ao ponto; arraste uma cena sobre outra para reordenar; ⏮ ⏭ andam entre cenas; "▶ cena" toca só a cena e "repetir cena" fica em loop.
+- Caixa "pedir ajuste só desta cena": escreva o que mudar, baixe o pedido (.txt), anexe na IA e solte aqui o arquivo `raiox-ajuste-<cena>.json` que ela devolver. Só aquela cena é trocada. "Desfazer ajuste" volta ao anterior.
+- Formato do ajuste: `{"ajuste":true,"bloco":"b4","fala":{...opcional},"animacao":{"elementos":[...],"blocos":[{"id":"b4",...}]}}`. Também pode ser solto na área de arquivos de cima.
+- Biblioteca: todos os 9 lotes foram considerados aprovados; correções entram conforme você for achando.

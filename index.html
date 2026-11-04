@@ -159,6 +159,7 @@ input[type=password]{font:13px var(--mono);background:#121318;color:var(--fg);bo
         </div>
       </div>
       <div class="bar" id="barWrap" title="Clique para ir a um ponto do vídeo"><i id="bar"></i></div>
+      <div id="rxTlWrap" hidden></div>
       <div class="controls">
         <button class="btn primary" id="playBtn">Reproduzir</button>
         <button class="btn" id="restartBtn">Do início</button>
@@ -1734,6 +1735,7 @@ function renderLines(){
 }
 let lastOn = -1, lastHud = '';
 function syncUI(){
+  if(window.Raiox && Raiox.syncTl) Raiox.syncTl(playhead);
   $('time').textContent = fmt(playhead)+' / '+fmt(total);
   $('bar').style.width = (total ? playhead/total*100 : 0)+'%';
   $('playBtn').textContent = playing ? 'Pausar' : 'Reproduzir';
@@ -1745,7 +1747,7 @@ function syncUI(){
   if(hud !== lastHud){ lastHud = hud; const h = $('hud'); h.innerHTML = '';
     hud.split('|').filter(Boolean).forEach((t,k)=>{ const s=document.createElement('span'); s.textContent=t; if(k===0) s.className='step'; h.appendChild(s); }); }
 }
-function markSel(){ [...$('lines').children].forEach((li,k)=>li.classList.toggle('sel', k===selIdx)); const li = $('lines').children[selIdx]; if(li && li.scrollIntoViewIfNeeded) li.scrollIntoViewIfNeeded(false); }
+function markSel(){ if(window.Raiox && Raiox.syncTl) Raiox.syncTl(playhead); [...$('lines').children].forEach((li,k)=>li.classList.toggle('sel', k===selIdx)); const li = $('lines').children[selIdx]; if(li && li.scrollIntoViewIfNeeded) li.scrollIntoViewIfNeeded(false); }
 
 function validate(s){
   if(!s || !Array.isArray(s.falas) || !s.falas.length) return 'O roteiro precisa de uma lista "falas" com pelo menos uma fala.';
@@ -2702,7 +2704,8 @@ function frame(now){
     if(!musicWanted){ musicWanted = true; startMusic(playhead); }
     if(musGain) musGain.gain.setTargetAtTime(VIS.musVol * (speakingAt(next) ? .35 : 1), actx.currentTime, .08);
     playhead = next;
-    if(stopAt != null && playhead >= stopAt){ playhead = stopAt; playing = false; stopAt = null; stopAllAudio(); }
+    if(stopAt != null && loopRange && playhead >= stopAt){ stopAllAudio(); playhead = loopRange[0]; lastSfxPH = -1; }
+    else if(stopAt != null && playhead >= stopAt){ playhead = stopAt; playing = false; stopAt = null; stopAllAudio(); }
     if(playhead >= total){ playhead = total; playing = false; stopAllAudio(); }
     syncUI();
   }
@@ -3804,12 +3807,15 @@ async function boot(){
   resize();
   requestAnimationFrame(frame);
 }
-function rxTocar(a, b){ ensureAudio(); stopAllAudio(); playhead = a; stopAt = b; playing = true; $('overlay').hidden = true; syncUI(); }
+let loopRange = null;
+function rxTocar(a, b, loop){ ensureAudio(); stopAllAudio(); playhead = a; stopAt = b; loopRange = loop ? [a, b] : null; playing = true; $('overlay').hidden = true; syncUI(); }
 Raiox.init({THREE, scene, cam, R, SKY, hemi, sun, rim, SCENES, addScene, zuco, guest,
   timeline: () => timeline, script: () => script, total: () => total, wordsOf,
   natural: l => l.buf ? l.buf.duration + .02 : estimate(l.texto || ''),
   refazer: () => { rebuildTimeline(); writeEditor(); },
   selecionar: (i, seek) => selectScene(i, seek),
+  sel: () => selIdx, playhead: () => playhead,
+  ir: t => { stopAllAudio(); playing = false; stopAt = null; playhead = Math.max(0, Math.min(total, t)); $('overlay').hidden = true; const l = lineAt(playhead); if(l && !l.auto){ selIdx = l.i; markSel(); fillSceneEditor(); } syncUI(); },
   tocar: rxTocar,
   gravar: async (de, ate, sufixo) => { const o = {de, ate, sufixo}; await exportVideo(o); return !!o.ok; },
   emExportacao: () => exporting,

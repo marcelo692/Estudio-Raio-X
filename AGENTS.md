@@ -272,3 +272,7 @@ Adicione `["nome-da-voz-edge", "Rótulo"]` em `NEURAL_VOICES`. A lista de vozes 
 - No motor (`modulos/raiox.js`): elemento `{"id","lib":"casa_corte","params":{},"pos":[...]}`; cada parte vira nó `id.parte` (serve para cor, destacar, rotulo, etc.); verbo novo `{"faz":"anim","alvo":"id","nome":"<animação>","em":..,"dur":..,"args":{}}` (animações com loop duram até `dur` ou até o fim do vídeo; as demais seguram a pose final). O prompt lista a biblioteca inteira (`RAIOX_LIB.catalogoCompacto()`); para criar objeto novo basta registrar no próximo `loteN.js`, incluir o script em `biblioteca.html` e `index.html` e ele entra sozinho na página e no prompt.
 - Exemplo completo usando só a biblioteca: `roteiros/exemplo-furacao.json` (botão "Exemplo: furacão" no estúdio).
 - Modo Raio-X da tela: esconde o que é só do Zuco (convidado, cenários, formatos, final); o apresentador no canto é opcional (checkbox, guardado em `localStorage` `rx-pip`).
+
+## Linha do tempo e ajuste por cena (raiox.js)
+- `montarTimeline` (faixa #rxTlWrap), `RX.syncTl(playhead)` chamado por syncUI/markSel; ctx extra: `sel`, `playhead`, `ir(t)`, `tocar(a,b,loop)`.
+- Ajuste: `promptAjuste(l,pedido)` gera o pedido; `aplicarAjuste(j)` substitui a fala por `bloco` e mescla por id (com pilha de desfazer). Aceito em `lerArquivos` e `adicionarParte` quando `j.ajuste`.

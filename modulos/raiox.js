@@ -645,7 +645,7 @@ RX.atualizarAvisos = function(){
 };
 function msg(t, err){ if(!ui) return; ui.msg.textContent = t; ui.msg.className = 'msg' + (err ? ' err' : ''); }
 function textoDoJSON(){ return E.script() && E.script().animacao ? JSON.stringify(E.script().animacao, null, 2) : ''; }
-RX.sincronizarUI = function(){ if(ui && document.activeElement !== ui.ed) ui.ed.value = textoDoJSON(); RX.renderBlocos(); };
+RX.sincronizarUI = function(){ if(ui && document.activeElement !== ui.ed) ui.ed.value = textoDoJSON(); RX.renderBlocos(); montarTimeline(); };
 function mesclar(base, novo){
   const out = JSON.parse(JSON.stringify(base || {}));
   Object.keys(novo).forEach(k => {
@@ -685,6 +685,7 @@ RX.renderBlocos = function(){
     const bt = (rot, tit, fn, dis) => { const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = rot; b.title = tit; b.disabled = !!dis; b.addEventListener('click', e => { e.stopPropagation(); fn(); }); bx.appendChild(b); };
     bt('▶', 'Ver só este bloco', () => E.tocar(pos ? l.start : 0, l.start + l.dur + Math.max(0, l.gap)*.8));
     bt('⏺', 'Gravar só este bloco em MP4 (para conferir)', () => gravar(itens, pos));
+    bt('✎', 'Pedir ajuste só desta cena', () => { E.selecionar(l.i, true); setTimeout(() => RX.focarAjuste(), 0); });
     bt('↑', 'Subir', () => mover(l.i, l.i-1), l.i === 0);
     bt('↓', 'Descer', () => mover(l.i, l.i+1), l.i === s.falas.length-1);
     bt('−', 'Encurtar 0,5 s (não passa do tempo da voz)', () => duracao(l, -.5));
@@ -730,7 +731,143 @@ function duracao(l, d){
   if(alvo <= natural + .05) delete f.duracao; else f.duracao = alvo;
   E.refazer();
 }
-RX.timelineMudou = function(){ tlRef = null; RX.renderBlocos(); };
+
+/* =========================================================
+   AJUSTE POR CENA: pede à IA só aquela cena e mescla o resultado
+   ========================================================= */
+const pedidos = {}, desfazer = [];
+function chaveCena(l){ const f = (E.script().falas || [])[l.i] || {}; return f.bloco || ('cena-'+(l.i+1)); }
+function cenaAtual(){ const tl = E.timeline().filter(l => !l.auto), i = E.sel ? E.sel() : 0; return tl.find(l => l.i === i) || tl[0] || null; }
+function refsDoBloco(a, bloco){
+  const txt = JSON.stringify(bloco || {}), els = (a.elementos || []).filter(e => e.id && txt.indexOf('"'+e.id) >= 0);
+  return els;
+}
+function promptAjuste(l, pedido){
+  const s = E.script(), a = s.animacao || {}, f = s.falas[l.i] || {}, chave = chaveCena(l);
+  const bloco = (a.blocos || []).find(b => b.id === f.bloco) || null;
+  const ant = s.falas[l.i-1], prox = s.falas[l.i+1];
+  const todos = (a.elementos || []).map(e => e.lib ? e.id+' ('+e.lib+')' : e.id+(e.peca ? ' (peça '+e.peca+')' : ''));
+  const base = RX.prompt(s.tema_video || s.titulo || '', null, {parte:2, total:2, dur:60}), i0 = base.indexOf('ANIMAÇÃO (campo "animacao")'), i1 = base.indexOf('MÚSICA E SONS');
+  const regras = i0 >= 0 ? base.slice(i0, i1 > i0 ? i1 : undefined) : '';
+  const slug = String(chave).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const L = [];
+  L.push('Você está AJUSTANDO UMA ÚNICA CENA de um vídeo explicativo 3D (formato RAIO-X). O vídeo já está pronto; NÃO reescreva o vídeo, devolva só a cena corrigida.',
+    '', 'VÍDEO: '+(s.titulo || s.tema_video || '(sem título)'),
+    ant ? 'FALA ANTERIOR (contexto): '+ant.texto : 'Esta é a primeira cena.',
+    prox ? 'FALA SEGUINTE (contexto): '+prox.texto : 'Esta é a última cena.',
+    '', 'CENA A AJUSTAR (id "'+chave+'")', 'Fala atual: '+JSON.stringify(f),
+    'Bloco atual (câmera e ações): '+JSON.stringify(bloco),
+    'Elementos que esta cena usa: '+JSON.stringify(refsDoBloco(a, bloco)),
+    'Todos os elementos que já existem no palco (pode usar qualquer um pelo id): '+todos.join(', '),
+    'Palco fixo (não mude): '+JSON.stringify(a.palco || null),
+    '', 'PEDIDO DO DONO DO VÍDEO PARA ESTA CENA:', (pedido && pedido.trim()) || 'Refaça esta cena com uma animação diferente, mais clara e mais bonita, mantendo o sentido da fala.',
+    '', 'COMO RESPONDER',
+    '- Mude SÓ o que o pedido exige. O que não foi pedido fica igual (copie do bloco atual).',
+    '- Responda SOMENTE com JSON válido: {"ajuste":true,"bloco":"'+chave+'","fala":{"quem":"mascote","texto":"...","bloco":"'+chave+'"},"animacao":{"elementos":[...só os novos ou alterados...],"blocos":[{"id":"'+chave+'","camera":{...},"acoes":[...completas desta cena...]}]}}',
+    '- O bloco devolvido substitui o atual por inteiro, então traga TODAS as ações da cena, inclusive as que não mudaram. O campo "fala" é opcional: só mande se o texto mudar (mantenha 8 a 16 palavras, mesmo tom).',
+    '- Elementos novos: use ids novos começando com "aj-" (ex.: "aj-nuvem"). Não altere elementos que outras cenas também usam; se precisar de variação, crie um elemento novo.',
+    '- ENTREGA: se puder criar arquivos, entregue como ARQUIVO para download chamado exatamente "raiox-ajuste-'+slug+'.json" e escreva só uma frase no chat. Se não puder, responda o JSON em texto.',
+    '', regras);
+  return {txt: L.join('\n'), arquivo: 'raiox-ajuste-'+slug+'.json'};
+}
+function aplicarAjuste(j){
+  const s = E.script(); if(!s || !s.animacao) return 'Primeiro carregue o vídeo; não há cena para ajustar.';
+  let idx = (s.falas || []).findIndex(f => f.bloco && f.bloco === j.bloco);
+  if(idx < 0 && +j.cena) idx = +j.cena - 1;
+  if(idx < 0 || idx >= s.falas.length) return 'Não achei a cena "'+(j.bloco || j.cena)+'" neste vídeo.';
+  const a = j.animacao && typeof j.animacao === 'object' ? j.animacao : {};
+  if(!j.fala && !(a.blocos && a.blocos.length) && !(a.elementos && a.elementos.length)) return 'O ajuste veio vazio (sem "fala" nem "animacao").';
+  desfazer.push(JSON.stringify({falas: s.falas, animacao: s.animacao})); if(desfazer.length > 20) desfazer.shift();
+  const antiga = s.falas[idx], id = antiga.bloco || (a.blocos && a.blocos[0] && a.blocos[0].id) || j.bloco;
+  if(j.fala && typeof j.fala.texto === 'string') s.falas[idx] = Object.assign({}, antiga, j.fala, {bloco: id, quem: antiga.quem || 'mascote'});
+  const blocos = (a.blocos || []).map(b => Object.assign({}, b, {id: b.id === j.bloco || !b.id ? id : b.id}));
+  s.animacao = mesclar(s.animacao, Object.assign({}, a, {blocos}));
+  delete s.animacao.ambiente_; E.refazer(); RX.sincronizarUI(); E.selecionar(idx, true);
+  return true;
+}
+function desfazerAjuste(){
+  const s = E.script(); if(!desfazer.length || !s){ msg2('Nada para desfazer.', true); return; }
+  const o = JSON.parse(desfazer.pop()); s.falas = o.falas; s.animacao = o.animacao; E.refazer(); RX.sincronizarUI(); msg2('Último ajuste desfeito.');
+}
+function baixarTexto(nome, txt){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], {type:'text/plain;charset=utf-8'})); a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+
+/* ---------- linha do tempo (estilo editor de vídeo) ---------- */
+let tl = null;
+function montarTimeline(){
+  const host = document.getElementById('rxTlWrap'); if(!host) return;
+  if(!tl){
+    const css = document.createElement('style');
+    css.textContent = '#rxTlWrap{width:100%;max-width:520px;display:flex;flex-direction:column;gap:6px}'
+      + '.rxtl{position:relative;display:flex;gap:2px;height:54px;padding:3px;background:var(--line,#ddd);border-radius:8px;overflow:hidden;user-select:none}'
+      + '.rxtl .seg{flex:1 1 0;min-width:20px;border-radius:5px;background:#8aa8d6;color:#fff;font-size:10px;line-height:1.15;padding:3px 4px;overflow:hidden;cursor:pointer;position:relative;opacity:.78;transition:opacity .12s}'
+      + '.rxtl .seg:nth-child(3n+2){background:#d68a8a}.rxtl .seg:nth-child(3n){background:#7fbf94}'
+      + '.rxtl .seg b{display:block;font-size:11px}.rxtl .seg.sel{opacity:1;box-shadow:0 0 0 2px #fff inset,0 0 0 2px #1d2a44}.rxtl .seg.alvo{outline:2px dashed #1d2a44}'
+      + '.rxtl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px #1d2a44;pointer-events:none;z-index:3}'
+      + '#rxTlBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:12px}'
+      + '#rxAj{border:1px solid var(--line,#ddd);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px}'
+      + '#rxAj textarea{width:100%;box-sizing:border-box;min-height:54px;font:12px/1.4 system-ui,sans-serif}#rxAj .row{display:flex;gap:6px;flex-wrap:wrap}';
+    document.head.appendChild(css);
+    host.innerHTML = '<div class="rxtl" id="rxTl"></div>'
+      + '<div id="rxTlBar"><button class="btn sm" id="rxTlA" title="Cena anterior">⏮</button><button class="btn sm" id="rxTlP" title="Tocar só esta cena">▶ cena</button><button class="btn sm" id="rxTlN" title="Próxima cena">⏭</button>'
+      + '<label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="rxTlLoop"> repetir cena</label><span id="rxTlInfo" style="opacity:.7"></span></div>'
+      + '<div id="rxAj" hidden><b id="rxAjT"></b><textarea id="rxAjTx" placeholder="O que mudar nesta cena? Ex.: deixe a nuvem mais escura, mostre a casa tremendo, troque a árvore por uma palmeira…"></textarea>'
+      + '<div class="row"><button class="btn primary sm" id="rxAjB">Baixar pedido (.txt)</button><button class="btn sm" id="rxAjC">Copiar pedido</button><button class="btn sm" id="rxAjO">Pedir outra versão</button>'
+      + '<label class="btn sm" style="cursor:pointer">Soltar resposta (.json)<input type="file" id="rxAjF" accept=".json,application/json" multiple hidden></label><button class="btn sm" id="rxAjU">Desfazer ajuste</button></div>'
+      + '<span class="msg" id="rxAjM"></span></div>';
+    tl = {el: host.querySelector('#rxTl'), ph: null, segs: [], itens: [], loop: host.querySelector('#rxTlLoop'), aj: host.querySelector('#rxAj'), ajT: host.querySelector('#rxAjT'), ajTx: host.querySelector('#rxAjTx'), ajM: host.querySelector('#rxAjM'), info: host.querySelector('#rxTlInfo'), chave: null};
+    const ir = d => { const itens = tl.itens, cur = E.sel ? E.sel() : 0, k = itens.findIndex(l => l.i === cur); const n = itens[Math.max(0, Math.min(itens.length-1, k + d))]; if(n) E.selecionar(n.i, true); };
+    host.querySelector('#rxTlA').addEventListener('click', () => ir(-1));
+    host.querySelector('#rxTlN').addEventListener('click', () => ir(1));
+    host.querySelector('#rxTlP').addEventListener('click', () => tocarCena());
+    tl.loop.addEventListener('change', () => { if(tl.loop.checked) tocarCena(); });
+    const am = (t, err) => { tl.ajM.textContent = t; tl.ajM.className = 'msg' + (err ? ' err' : ''); };
+    const gerar = outra => { const l = cenaAtual(); if(!l) return null; if(outra && !tl.ajTx.value.trim()) tl.ajTx.value = 'Refaça esta cena com outra abordagem visual, mais clara e bonita.'; return promptAjuste(l, tl.ajTx.value); };
+    host.querySelector('#rxAjB').addEventListener('click', () => { const r = gerar(); if(!r) return; baixarTexto('prompt-'+r.arquivo.replace('.json', '.txt'), r.txt); am('Pedido baixado. Anexe na IA ("siga as instruções do arquivo") e solte aqui o '+r.arquivo+' que ela devolver.'); });
+    host.querySelector('#rxAjC').addEventListener('click', () => { const r = gerar(); if(!r) return; window.__ultimoPrompt = r.txt;
+      (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(r.txt) : Promise.reject()).then(() => am('Pedido copiado. Cole na IA e solte aqui o '+r.arquivo+'.'), () => { baixarTexto('prompt-'+r.arquivo.replace('.json', '.txt'), r.txt); am('Não consegui copiar; baixei o pedido como arquivo.'); }); });
+    host.querySelector('#rxAjO').addEventListener('click', () => { const r = gerar(true); if(!r) return; baixarTexto('prompt-'+r.arquivo.replace('.json', '.txt'), r.txt); am('Pedido de nova versão baixado. Anexe na IA e solte aqui a resposta.'); });
+    host.querySelector('#rxAjF').addEventListener('change', async e => { const fs = [...e.target.files]; e.target.value = ''; await lerArquivos(fs); am(ui && ui.msg2 ? ui.msg2.textContent : '', ui && ui.msg2.className.indexOf('err') >= 0); });
+    host.querySelector('#rxAjU').addEventListener('click', () => { desfazerAjuste(); am('Último ajuste desfeito.'); });
+    tl.ajTx.addEventListener('input', () => { if(tl.chave) pedidos[tl.chave] = tl.ajTx.value; });
+  }
+  const s = E.script(), todos = E.timeline();
+  tl.itens = todos.filter(l => !l.auto); tl.segs = []; tl.el.innerHTML = '';
+  host.hidden = !s || !tl.itens.length;
+  tl.itens.forEach((l, pos) => {
+    const f = s.falas[l.i] || {}, d = document.createElement('div'); d.className = 'seg'; d.draggable = true; d.style.flexGrow = Math.max(.5, l.dur);
+    d.innerHTML = '<b></b><span></span>'; d.firstChild.textContent = (pos+1)+'  '+l.dur.toFixed(1)+'s'; d.lastChild.textContent = trecho(f.texto, 38);
+    d.title = trecho(f.texto, 120);
+    d.addEventListener('click', e => { const r = d.getBoundingClientRect(); const fr = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width)); E.ir(l.start + fr*l.dur); });
+    d.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', String(l.i)); });
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('alvo'); });
+    d.addEventListener('dragleave', () => d.classList.remove('alvo'));
+    d.addEventListener('drop', e => { e.preventDefault(); d.classList.remove('alvo'); const de = +e.dataTransfer.getData('text/plain'); if(isFinite(de) && de !== l.i) mover(de, l.i); });
+    tl.el.appendChild(d); tl.segs.push(d);
+  });
+  tl.ph = document.createElement('div'); tl.ph.className = 'ph'; tl.el.appendChild(tl.ph);
+  RX.syncTl(E.playhead ? E.playhead() : 0);
+}
+function tocarCena(){
+  const l = cenaAtual(); if(!l) return;
+  const it = tl.itens, pos = it.indexOf(l);
+  E.tocar(pos ? l.start : 0, l.start + l.dur + Math.max(0, l.gap)*.8, tl.loop.checked);
+}
+RX.syncTl = function(ph){
+  if(!tl || !tl.segs.length) return;
+  const cur = E.sel ? E.sel() : 0;
+  let k = tl.itens.findIndex(l => ph >= l.start && ph < l.start + l.dur + Math.max(0, l.gap)); if(k < 0) k = ph <= 0 ? 0 : tl.itens.length-1;
+  const l = tl.itens[k], sg = tl.segs[k], fr = Math.max(0, Math.min(1, (ph - l.start)/Math.max(.01, l.dur)));
+  tl.ph.style.left = (sg.offsetLeft + fr*sg.offsetWidth)+'px';
+  const selK = tl.itens.findIndex(x => x.i === cur);
+  tl.segs.forEach((e, n) => e.classList.toggle('sel', n === selK));
+  const lc = selK >= 0 ? tl.itens[selK] : null;
+  if(lc){ const chave = chaveCena(lc);
+    if(tl.chave !== chave){ tl.chave = chave; tl.ajTx.value = pedidos[chave] || ''; tl.aj.hidden = false; tl.ajT.textContent = '✎ Cena '+(selK+1)+' ('+chave+') — pedir ajuste só desta cena'; tl.ajM.textContent = ''; }
+    tl.info.textContent = 'cena '+(selK+1)+' de '+tl.itens.length+' · '+lc.dur.toFixed(1)+' s'; }
+};
+RX.focarAjuste = function(){ if(tl){ tl.aj.hidden = false; tl.ajTx.focus(); tl.aj.scrollIntoView({block:'nearest'}); } };
+
+RX.timelineMudou = function(){ tlRef = null; RX.renderBlocos(); montarTimeline(); };
 RX.montarUI = function(host){
   const css = document.createElement('style');
   css.textContent = '#rxBlocos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}'
@@ -821,10 +958,11 @@ function baixarPrompt(){
 const pool = {};
 function numeroDoArquivo(nome){ const m = /parte[-_ ]*(\d+)(?:[-_ ]*de[-_ ]*(\d+))?/i.exec(nome || ''); return m ? {k:+m[1], n: m[2] ? +m[2] : 0} : null; }
 async function lerArquivos(files){
-  const erros = [];
+  const erros = [], okAjustes = [];
   for(const f of files){
     try{
       const j = JSON.parse((await f.text()).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+      if(j && j.ajuste){ const r = aplicarAjuste(j); if(r !== true) erros.push(f.name+': '+r); else okAjustes.push(j.bloco || ('cena '+j.cena)); continue; }
       const nm = numeroDoArquivo(f.name), k = +j.parte || (nm && nm.k) || 0;
       if(!j || !Array.isArray(j.falas)){ erros.push(f.name+': não tem "falas"'); continue; }
       if(!k){ erros.push(f.name+': não achei o número da parte (nem no JSON nem no nome do arquivo)'); continue; }
@@ -833,6 +971,7 @@ async function lerArquivos(files){
     }catch(e){ erros.push(f.name+': JSON com erro ('+e.message+')'); }
   }
   await processarFila(erros);
+  if(okAjustes.length) msg2('Ajuste aplicado: '+okAjustes.join(', ')+'. Confira a cena; se não gostou, use "Desfazer ajuste".', false);
 }
 async function processarFila(erros){
   const s = E.script(); let atual = s && s.animacao && s.partes ? (s.partes.atual || 0) : 0, aplicadas = [];
@@ -862,6 +1001,7 @@ function copiarPrompt(){
 async function adicionarParte(){
   let j; const bruto = ui.resp.value.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
   try{ j = JSON.parse(bruto); }catch(e){ msg2('O JSON está com erro: '+e.message, true); return; }
+  if(j && j.ajuste){ const r = aplicarAjuste(j); if(r === true){ ui.resp.value = ''; msg2('Ajuste aplicado na cena '+(j.bloco || j.cena)+'.'); } else msg2(r, true); return; }
   if(!j || typeof j !== 'object' || !Array.isArray(j.falas)){ msg2('Não achei o campo "falas" nesse JSON.', true); return; }
   await aplicarParte(j);
 }
