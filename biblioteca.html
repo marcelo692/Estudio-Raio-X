@@ -31,13 +31,13 @@ textarea{width:100%;min-height:110px;resize:vertical}
 h3{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px}
 @media(max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 220px 60vh auto}#lista,#lado{border:0}header{grid-column:1}}
 </style></head><body>
-<header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><a href="index.html">← voltar ao estúdio</a></header>
+<header><h1>Biblioteca de objetos</h1><span class="mu" id="resumo"></span><span style="flex:1"></span><button id="bBaixar" title="Baixa um arquivo com suas anotações">Baixar anotações</button><a href="index.html">← voltar ao estúdio</a></header>
 <aside id="lista"></aside>
 <main id="centro"><canvas id="cv"></canvas><div id="hud"></div>
   <div id="barra"><button id="bGirar" class="on">Girar</button><button id="bRegua">Régua 1 m</button><button id="bPanorama">Ver todos lado a lado</button><button id="bRepouso">Repouso</button><span id="anims" style="display:contents"></span></div></main>
 <aside id="lado"><div id="info"></div></aside>
 <script src="lib/three.min.js"></script><script src="lib/OrbitControls.js"></script>
-<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script>
+<script src="modulos/biblioteca/base.js"></script><script src="modulos/biblioteca/lote1.js"></script><script src="modulos/biblioteca/lote2.js"></script><script src="modulos/biblioteca/lote3.js"></script>
 <script>
 const LIB = window.RAIOX_LIB, T = THREE, $ = id => document.getElementById(id);
 const estado = {sel:null, params:{}, cena:null, anim:null, relogio:0, giro:true, regua:false, pano:false, val:{}};
@@ -159,6 +159,7 @@ async function iniciar(){
   $('bRepouso').onclick = () => { estado.anim = null; };
   $('bPanorama').onclick = e => { if(estado.pano){ selecionar(estado.sel); } else { panorama(); e.target.classList.add('on'); } };
 }
+$('bBaixar').onclick = () => { const b = new Blob([JSON.stringify(estado.val, null, 2)], {type:'application/json'}), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'validacao.json'; a.click(); };
 iniciar();
 window.__BIB = {estado, selecionar, mostra, panorama, LIB, R, cam, ctl};
 </script></body></html>

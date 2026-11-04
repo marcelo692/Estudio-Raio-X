@@ -182,7 +182,11 @@ LIB.construir = function(id, params){
 };
 // volta todas as partes à pose de repouso e às cores originais (o motor chama isso antes de aplicar as animações do quadro)
 LIB.reset = function(partes){
-  Object.keys(partes).forEach(k => { const o = partes[k]; volta(o); o.traverse(m => { if(m.isMesh && m.material.userData.cor0) m.material.color.copy(m.material.userData.cor0); }); });
+  Object.keys(partes).forEach(k => { const o = partes[k]; volta(o); o.traverse(m => {
+    if(!m.isMesh) return; const mt = m.material;
+    if(mt.userData.cor0) mt.color.copy(mt.userData.cor0);
+    const e = mt.userData.e; if(e && mt.emissive){ mt.emissive.copy(e.c); mt.emissiveIntensity = e.i; }
+  }); });
 };
 // resumo para o prompt da IA
 LIB.catalogo = function(){
